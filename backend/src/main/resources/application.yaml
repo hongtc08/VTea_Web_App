@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: vtea
+  datasource:
+    url: jdbc:mysql://db:3306/pos_database
+    username: pos_admin
+    password: pos_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+server:
+  port: 8080
