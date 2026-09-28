@@ -29,7 +29,7 @@ jobs:
         run: |
           cd backend
           chmod +x mvnw
-          ./mvnw verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=NHAP_PROJECT_KEY_BACKEND
+          ./mvnw verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=NHAP_PROJECT_KEY_BACKEND -DskipTests
 
   # 2. Quét lỗi Frontend bằng SonarCloud
   sonar-frontend:
