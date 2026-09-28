@@ -27,6 +27,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           cd backend
+          chmod +x mvnw
           ./mvnw verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=NHAP_PROJECT_KEY_BACKEND
 
   # 2. Quét lỗi Frontend bằng SonarCloud
