@@ -30,6 +30,7 @@ jobs:
           cd backend
           chmod +x mvnw
           ./mvnw verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar -Dsonar.projectKey=hongtc08_VTea_Web_App -Dsonar.organization=hongtc08 -DskipTests
+
   # 2. Quét lỗi Frontend bằng SonarCloud
   sonar-frontend:
     runs-on: ubuntu-latest
@@ -45,7 +46,8 @@ jobs:
         with:
           projectBaseDir: frontend
 
- build-test:
+  # 3. Chạy thử Build Docker (Không Push)
+  build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
