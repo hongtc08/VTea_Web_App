@@ -29,8 +29,7 @@ jobs:
         run: |
           cd backend
           chmod +x mvnw
-          ./mvnw verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=hongtc08_VTea_Web_App -DskipTests
-
+          ./mvnw verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar -Dsonar.projectKey=hongtc08_VTea_Web_App -Dsonar.organization=hongtc08 -DskipTests
   # 2. Quét lỗi Frontend bằng SonarCloud
   sonar-frontend:
     runs-on: ubuntu-latest
