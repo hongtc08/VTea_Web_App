@@ -14,10 +14,11 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
+    private final UserRepository userRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
+    public CustomUserDetailsService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
     /**
      * Tìm user trong DB theo username.
      * Nếu không tìm thấy thì ném lỗi

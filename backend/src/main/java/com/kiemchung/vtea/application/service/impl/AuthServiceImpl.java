@@ -16,12 +16,13 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AuthServiceImpl implements AuthService {
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
-
-    @Autowired
-    private JwtService jwtService;
+    public AuthServiceImpl(AuthenticationManager authenticationManager, JwtService jwtService) {
+        this.authenticationManager = authenticationManager;
+        this.jwtService = jwtService;
+    }
 
     /**
      * Xử lý đăng nhập:

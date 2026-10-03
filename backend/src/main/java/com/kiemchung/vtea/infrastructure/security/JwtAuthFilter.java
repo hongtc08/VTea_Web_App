@@ -19,13 +19,13 @@ import java.io.IOException;
  */
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter { //đảm bảo filter chỉ chạy đúng 1 lần cho mỗi request
+    private final JwtService jwtService;
+    private final CustomUserDetailsService userDetailsService;
 
-    @Autowired
-    private JwtService jwtService;
-
-    @Autowired
-    private CustomUserDetailsService userDetailsService;
-
+    public JwtAuthFilter(JwtService jwtService, CustomUserDetailsService userDetailsService) {
+        this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
+    }
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
