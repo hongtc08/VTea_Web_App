@@ -38,6 +38,7 @@ public class SecurityConfig {
      * Chuỗi bộ lọc bảo mật chính.
      */
     @Bean
+    @SuppressWarnings("java:S4502") // Bỏ qua cảnh báo CSRF của SonarCloud vì dùng JWT (Stateless)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             // Cho phép gọi API từ Frontend (khác domain/port)
