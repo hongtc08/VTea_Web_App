@@ -2,13 +2,20 @@ spring:
   application:
     name: vtea
   datasource:
-    url: jdbc:mysql://db:3306/pos_database
-    username: pos_admin
-    password: pos_password
+    # Kết nối tới DB thông qua biến môi trường từ file .env
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslMode=REQUIRED
+    username: ${DB_USER}
+    password: ${DB_PASS}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      # none: không để Hibernate tự động sửa schema DB
+      # DB đã có sẵn bảng, để Hibernate tự sửa sẽ gây lỗi với foreign key
+      ddl-auto: none
     show-sql: true
 server:
   port: 8080
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: ${JWT_EXPIRATION} # 1 ngày tính theo milliseconds
