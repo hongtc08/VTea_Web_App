@@ -1,5 +1,6 @@
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
+import { Toaster } from 'sonner';
 import './globals.css';
 
 export default function RootLayout({
@@ -10,7 +11,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <div className="flex flex-col h-screen bg-[#F7F0E1] overflow-hidden text-sm">
+        <div className="flex flex-col h-screen bg-background overflow-hidden text-sm">
           {/* Top: Header */}
           <Header />
 
@@ -20,12 +21,13 @@ export default function RootLayout({
 
             {/* Center: Content Area */}
             <main className="flex-1 overflow-y-auto p-6">
-              <div className="bg-white rounded-xl shadow-sm min-h-full p-6 border border-gray-100">
+              <div className="min-h-full">
                 {children}
               </div>
             </main>
           </div>
         </div>
+        <Toaster richColors position="bottom-right" />
       </body>
     </html>
   );
