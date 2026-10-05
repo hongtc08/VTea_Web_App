@@ -1,26 +1,74 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-tea-50: #EDF6F2;
+  --color-tea-100: #D3EADF;
+  --color-tea-200: #A9D4C2;
+  --color-tea-300: #76B89F;
+  --color-tea-400: #489880;
+  --color-tea-500: #2F7B64;
+  --color-tea-600: #23624F;
+  --color-tea-700: #1B5A46;
+  --color-tea-800: #134B3A;
+  --color-tea-900: #0B3B2C; 
+  --color-tea-950: #072A1F;
+
+  --color-champagne-50: #FBF7ED;
+  --color-champagne-100: #F5ECD3;
+  --color-champagne-200: #EBD9A9;
+  --color-champagne-300: #E4CB90;
+  --color-champagne-400: #DDBE7B;
+  --color-champagne-500: #D8B56A; 
+  --color-champagne-600: #BF9A4E;
+  --color-champagne-700: #9C7A3B;
+  --color-champagne-800: #7A5E31;
+  --color-champagne-900: #5A4527;
+  --color-champagne-950: #3A2B18;
+
+  --color-cream-50: #FCF9F2;
+  --color-cream-100: #F7F0E1;
+  --color-cream-200: #EEE2C8;
+  --color-cream-300: #E2D2AA;
+  --color-cream-400: #D2BF8C;
+  --color-cream-500: #BDA66F;
+  --color-cream-600: #9A8657;
+  --color-cream-700: #776843;
+  --color-cream-800: #564B32;
+  --color-cream-900: #3A3323;
+
+  --color-success: #2F7B64;
+  --color-warning: #C98A2B;
+  --color-danger: #B3412F;
+
+  --radius-card: 1rem;
+  --radius-control: 0.75rem;
+
+  --shadow-soft: 0 2px 12px rgb(11 59 44 / 0.08);
+  --shadow-elevated: 0 8px 30px rgb(11 59 44 / 0.15);
+  --shadow-gold: 0 4px 18px rgb(216 181 106 / 0.35);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: #FDFBF7;
+  --color-surface: #FFFFFF;
+  --color-foreground: var(--color-tea-900);
+  --color-muted: var(--color-cream-700);
+  --color-border: var(--color-cream-300);
+
+  --color-primary: var(--color-tea-900);
+  --color-primary-hover: var(--color-tea-800);
+  --color-primary-foreground: var(--color-cream-100);
+
+  --color-accent: var(--color-champagne-500);
+  --color-accent-hover: var(--color-champagne-600);
+  --color-accent-foreground: var(--color-tea-900);
+
+  --font-sans: var(--font-sans-next), system-ui, sans-serif;
+  --font-display: var(--font-display-next), Georgia, serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
