@@ -6,7 +6,7 @@ import { Employee } from '@/types/employee';
 import EmployeeFilters from '@/components/accounts/EmployeeFilters';
 import EmployeeTable from '@/components/accounts/EmployeeTable';
 import EmployeeModal from '@/components/accounts/EmployeeModal';
-import PasswordModal from '@/components/accounts/PasswordModal';
+import ChangePasswordModal from '@/components/accounts/ChangePasswordModal';
 import { toast } from 'sonner';
 
 const MOCK_EMPLOYEES: Employee[] = [
@@ -102,7 +102,7 @@ export default function AccountsPage() {
                 employeeToEdit={employeeToEdit}
             />
 
-            <PasswordModal
+            <ChangePasswordModal
                 isOpen={isPasswordModalOpen}
                 onClose={() => { setIsPasswordModalOpen(false); setEmployeeToEdit(null); }}
                 onSubmit={(oldPass, newPass) => {
