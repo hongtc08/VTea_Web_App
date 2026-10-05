@@ -3,21 +3,36 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { loginApi } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('123456');
+  const { login } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      const response = await loginApi({ username: username.trim(), password });
+      login(response);
       router.push('/pos');
-    }, 600);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setErrorMessage(err.message);
+      } else {
+        setErrorMessage('Đăng nhập thất bại. Vui lòng thử lại!');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -171,6 +186,12 @@ export default function LoginPage() {
               Chào mừng bạn quay trở lại!
             </p>
           </div>
+
+          {errorMessage && (
+            <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-600 animate-fadeIn">
+              {errorMessage}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Tên đăng nhập */}
