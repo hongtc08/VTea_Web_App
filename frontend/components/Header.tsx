@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import { LogOut, Crown } from 'lucide-react';
 
 export default function Header() {
@@ -37,10 +38,13 @@ export default function Header() {
                 </div>
 
                 {/* Nút Logout */}
-                <button className="flex items-center gap-2 px-4 py-3 border border-white/20 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-white text-sm font-medium">
+                <Link
+                    href="/login"
+                    className="flex items-center gap-2 px-4 py-3 border border-white/20 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-white text-sm font-medium"
+                >
                     <LogOut size={18} />
                     Đăng xuất
-                </button>
+                </Link>
             </div>
 
         </header>
