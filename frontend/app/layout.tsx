@@ -2,6 +2,7 @@
 
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
+import { Toaster } from 'sonner';
 import { usePathname } from 'next/navigation';
 import { AuthProvider } from '@/contexts/AuthContext';
 import './globals.css';
@@ -23,7 +24,7 @@ export default function RootLayout({
               {children}
             </main>
           ) : (
-            <div className="flex flex-col h-screen bg-[#F7F0E1] overflow-hidden text-sm">
+            <div className="flex flex-col h-screen bg-background overflow-hidden text-sm">
               {/* Top: Header */}
               <Header />
 
@@ -40,6 +41,8 @@ export default function RootLayout({
               </div>
             </div>
           )}
+        
+        <Toaster richColors position="bottom-right" />
         </AuthProvider>
       </body>
     </html>

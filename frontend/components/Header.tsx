@@ -13,19 +13,19 @@ export default function Header() {
     const avatarInitial = displayName.charAt(0).toUpperCase();
 
     return (
-        <header className="h-[72px] bg-[#0B3B2C] border-b border-[#0B3B2C] flex items-center justify-between px-6">
+        <header className="h-[72px] bg-primary border-b border-primary flex items-center justify-between px-6">
 
             {/* Vùng Logo */}
             <div className="flex items-center gap-3.5">
-                <div className="w-[60px] h-[60px] bg-white rounded-xl overflow-hidden relative flex items-center justify-center">
+                <div className="w-[60px] h-[60px] bg-surface rounded-[var(--radius-card)] overflow-hidden relative flex items-center justify-center">
                     <Image src="/images/logo.png" alt="VTea Logo" fill className="object-contain" />
                 </div>
 
                 <div className="flex flex-col justify-center">
                     <div className="flex items-center gap-2">
-                        <h1 className="text-xl font-bold text-white">VTea</h1>
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#D8B56A]"></div>
-                        <span className="text-lg font-medium text-gray-300">Cafe & Trà Sữa</span>
+                        <h1 className="text-xl font-bold text-primary-foreground">VTea</h1>
+                        <div className="w-1.5 h-1.5 rounded-full bg-accent"></div>
+                        <span className="text-lg font-medium text-primary-foreground/80">Cafe & Trà Sữa</span>
                     </div>
                 </div>
             </div>
