@@ -28,6 +28,12 @@
 	</scm>
 	<properties>
 		<java.version>25</java.version>
+		<!-- Bỏ qua kiểm tra Coverage của SonarCloud cho các class không chứa logic (DTO, Controller, Entity) -->
+		<sonar.coverage.exclusions>
+			**/dto/**,
+			**/entity/**,
+			**/controller/**
+		</sonar.coverage.exclusions>
 	</properties>
 	<dependencies>
 		<!-- Thư viện Web MVC để tạo REST API -->
@@ -86,10 +92,17 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!-- Thư viện test Web MVC -->
+		<!-- Thư viện test chung của Spring Boot (đã bao gồm WebMvcTest, Mockito, JUnit5) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- Thư viện test Security -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
