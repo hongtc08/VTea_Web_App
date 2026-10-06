@@ -17,4 +17,6 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      * Tìm user theo username — dùng khi đăng nhập.
      */
     Optional<User> findByUsername(String username);
+
+    boolean existsByUsername(String username);
 }
