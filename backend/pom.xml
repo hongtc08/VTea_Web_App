@@ -34,6 +34,11 @@
 			**/entity/**,
 			**/controller/**
 		</sonar.coverage.exclusions>
+		<!-- Bỏ qua kiểm tra Lặp code (Duplication) cho các DTO và Entity vì có quá nhiều getter/setter giống nhau -->
+		<sonar.cpd.exclusions>
+			**/dto/**,
+			**/entity/**
+		</sonar.cpd.exclusions>
 	</properties>
 	<dependencies>
 		<!-- Thư viện Web MVC để tạo REST API -->
