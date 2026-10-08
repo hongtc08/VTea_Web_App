@@ -3,13 +3,12 @@
 import React from 'react';
 import { Minus, Plus, Trash2, X } from 'lucide-react';
 import { CartItem, Topping } from '@/types/pos';
-import { AVAILABLE_TOPPINGS } from '@/data/mockProducts';
 
 interface CartItemRowProps {
   item: CartItem;
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemoveItem: (id: string) => void;
-  onToggleCustomizing: (id: string) => void;
+  onOpenToppingModal: (item: CartItem) => void;
   onUpdateTopping: (cartItemId: string, topping: Topping, delta: number) => void;
   onRemoveTopping: (cartItemId: string, toppingId: string) => void;
 }
@@ -18,7 +17,7 @@ export default function CartItemRow({
   item,
   onUpdateQuantity,
   onRemoveItem,
-  onToggleCustomizing,
+  onOpenToppingModal,
   onUpdateTopping,
   onRemoveTopping,
 }: CartItemRowProps) {
@@ -109,38 +108,15 @@ export default function CartItemRow({
         </div>
       )}
 
-      {/* Nút Toggle Thêm Topping */}
+      {/* Nút Thêm Topping: Mở Modal Topping (không dùng toggle) */}
       <div className="mt-2.5">
         <button
           type="button"
-          onClick={() => onToggleCustomizing(item.id)}
-          className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-            item.isCustomizingTopping
-              ? 'bg-[#F2A900] text-white shadow-xs'
-              : 'bg-cream-200/80 text-foreground hover:bg-cream-300'
-          }`}
+          onClick={() => onOpenToppingModal(item)}
+          className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-[#F2A900] text-white hover:bg-[#d89600] shadow-2xs transition-colors cursor-pointer"
         >
-          {item.isCustomizingTopping ? 'Đang thêm topping' : '+ Thêm topping'}
+          + Thêm topping
         </button>
-
-        {/* Bảng chọn nhanh Topping khi mở modal inline */}
-        {item.isCustomizingTopping && (
-          <div className="mt-2 p-2 rounded-lg bg-cream-100 border border-border/80 flex flex-wrap gap-1.5">
-            {AVAILABLE_TOPPINGS.map((top) => (
-              <button
-                key={top.id}
-                type="button"
-                onClick={() => onUpdateTopping(item.id, top, 1)}
-                className="text-[11px] bg-surface border border-border hover:border-primary px-2 py-1 rounded text-foreground hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <span>{top.name}</span>
-                <span className="text-muted font-normal text-[10px]">
-                  (+{new Intl.NumberFormat('vi-VN').format(top.price)}đ)
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Dòng điều khiển số lượng món & Tổng tiền & Nút thùng rác */}
@@ -184,4 +160,3 @@ export default function CartItemRow({
     </div>
   );
 }
-

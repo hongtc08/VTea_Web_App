@@ -10,10 +10,48 @@ export const CATEGORIES = [
 ];
 
 export const AVAILABLE_TOPPINGS: Topping[] = [
-  { id: 'cu-nang', name: 'Củ năng', price: 6000 },
-  { id: 'tran-chau-trang', name: 'Trân châu trắng', price: 6000 },
-  { id: 'thach-dao', name: 'Thạch đào', price: 6000 },
-  { id: 'kem-cheese', name: 'Kem cheese', price: 10000 },
+  {
+    id: 'tran-chau-den',
+    name: 'Trân châu đen',
+    price: 5000,
+    category: 'Topping',
+    imageUrl: '/images/toppings/c-nng-1781544594063.jpg',
+  },
+  {
+    id: 'tran-chau-olong',
+    name: 'Trân châu olong',
+    price: 8000,
+    category: 'Topping',
+    imageUrl: '/images/toppings/pudding-trng-1781636222883.png',
+  },
+  {
+    id: 'tran-chau-trang',
+    name: 'Trân châu trắng',
+    price: 5000,
+    category: 'Topping',
+    imageUrl: '/images/toppings/pudding-chocolate-1781636241583.jpg',
+  },
+  {
+    id: 'cu-nang',
+    name: 'Củ năng',
+    price: 6000,
+    category: 'Topping',
+    imageUrl: '/images/toppings/c-nng-1781544594063.jpg',
+  },
+  {
+    id: 'pho-mai-man',
+    name: 'Phô mai mặn',
+    price: 7000,
+    category: 'Topping',
+    imageUrl: '/images/toppings/ph-mai-vin-1781544613359.jpg',
+  },
+  {
+    id: 'pho-mai-vien',
+    name: 'Phô mai viên',
+    price: 8000,
+    category: 'Topping',
+    imageUrl: '/images/toppings/ph-mai-vin-1781544613359.jpg',
+  },
 ];
 
 export const INITIAL_PRODUCTS: Product[] = [
@@ -74,4 +112,3 @@ export const INITIAL_PRODUCTS: Product[] = [
     imageUrl: '/images/products/chocolate--xay-1781634858335.png',
   },
 ];
-

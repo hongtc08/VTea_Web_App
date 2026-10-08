@@ -2,6 +2,8 @@ export interface Topping {
   id: string;
   name: string;
   price: number;
+  imageUrl?: string;
+  category?: string;
 }
 
 export interface SelectedTopping {
@@ -21,10 +23,8 @@ export interface Product {
 }
 
 export interface CartItem {
-  id: string; // unique cart item id (e.g. productId + toppings hash)
+  id: string; // unique cart item id
   product: Product;
   quantity: number;
   toppings: SelectedTopping[];
-  isCustomizingTopping?: boolean;
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Search } from 'lucide-react';
 import { Product } from '@/types/pos';
 import ProductCard from './ProductCard';
@@ -12,7 +12,7 @@ interface ProductListProps {
   onSelectCategory: (cat: string) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
-  onAddToCart: (product: Product) => void;
+  onProductClick: (product: Product) => void;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
@@ -23,7 +23,7 @@ export default function ProductList({
   onSelectCategory,
   searchQuery,
   onSearchChange,
-  onAddToCart,
+  onProductClick,
   searchInputRef,
 }: ProductListProps) {
   return (
@@ -82,7 +82,7 @@ export default function ProductList({
               <ProductCard
                 key={product.id}
                 product={product}
-                onAddToCart={onAddToCart}
+                onAddToCart={onProductClick}
               />
             ))}
           </div>
@@ -114,4 +114,3 @@ export default function ProductList({
     </div>
   );
 }
-
