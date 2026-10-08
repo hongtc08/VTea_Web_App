@@ -33,10 +33,18 @@ export default function RootLayout({
                 <Sidebar />
 
                 {/* Center: Content Area */}
-                <main className="flex-1 overflow-y-auto p-6">
-                  <div className="bg-white rounded-xl shadow-sm min-h-full p-6 border border-gray-100">
-                    {children}
-                  </div>
+                <main className="flex-1 overflow-hidden">
+                  {pathname === '/pos' ? (
+                    <div className="h-full w-full">
+                      {children}
+                    </div>
+                  ) : (
+                    <div className="h-full overflow-y-auto p-6">
+                      <div className="bg-surface rounded-xl shadow-soft min-h-full p-6 border border-border">
+                        {children}
+                      </div>
+                    </div>
+                  )}
                 </main>
               </div>
             </div>
