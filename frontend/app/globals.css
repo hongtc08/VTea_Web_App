@@ -10,7 +10,7 @@
   --color-tea-600: #23624F;
   --color-tea-700: #1B5A46;
   --color-tea-800: #134B3A;
-  --color-tea-900: #0B3B2C; 
+  --color-tea-900: #0B3B2C;
   --color-tea-950: #072A1F;
 
   --color-champagne-50: #FBF7ED;
@@ -18,7 +18,7 @@
   --color-champagne-200: #EBD9A9;
   --color-champagne-300: #E4CB90;
   --color-champagne-400: #DDBE7B;
-  --color-champagne-500: #D8B56A; 
+  --color-champagne-500: #D8B56A;
   --color-champagne-600: #BF9A4E;
   --color-champagne-700: #9C7A3B;
   --color-champagne-800: #7A5E31;
@@ -49,8 +49,8 @@
 }
 
 @theme inline {
-  --color-background: #FDFBF7;
-  --color-surface: #FFFFFF;
+  --color-background: var(--color-cream-100);
+  --color-surface: var(--color-cream-50);
   --color-foreground: var(--color-tea-900);
   --color-muted: var(--color-cream-700);
   --color-border: var(--color-cream-300);
