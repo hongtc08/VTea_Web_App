@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 
 /**
  * Lớp DTO (Data Transfer Object) dùng để bọc dữ liệu Món nước trước khi trả về cho Frontend.
- * Giúp giấu đi các trường nhạy cảm trong Entity hoặc định dạng lại dữ liệu nếu cần.
  */
 public class MenuItemResponse {
     private String category;

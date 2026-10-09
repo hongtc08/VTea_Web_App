@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * Controller chứa các API quản lý nhân viên/user.
  */
@@ -21,9 +23,29 @@ public class UserController {
     }
 
     /**
+     * API lấy danh sách toàn bộ tài khoản.
+     */
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UserResponse>> getAllUsers() {
+        return ResponseEntity.ok(userService.getAllUsers());
+    }
+
+    /**
+     * API lấy thông tin 1 tài khoản theo ID.
+     */
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getUserById(@PathVariable Integer id) {
+        try {
+            return ResponseEntity.ok(userService.getUserById(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        }
+    }
+
+    /**
      * API tạo tài khoản mới.
-     * Chỉ những người có Role ADMIN mới được gọi API này.
-     * POST /api/users
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")

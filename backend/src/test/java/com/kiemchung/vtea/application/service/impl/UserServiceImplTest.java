@@ -96,4 +96,48 @@ public class UserServiceImplTest {
         verify(passwordEncoder, never()).encode(anyString());
         verify(userRepository, never()).save(any(User.class));
     }
+
+    @Test
+    void getAllUsers_Success() {
+        // Arrange
+        when(userRepository.findAll()).thenReturn(java.util.List.of(savedUser));
+
+        // Act
+        java.util.List<UserResponse> responses = userService.getAllUsers();
+
+        // Assert
+        assertNotNull(responses);
+        assertEquals(1, responses.size());
+        assertEquals("staff1", responses.get(0).getUsername());
+        verify(userRepository, times(1)).findAll();
+    }
+
+    @Test
+    void getUserById_Success() {
+        // Arrange
+        when(userRepository.findById(1)).thenReturn(java.util.Optional.of(savedUser));
+
+        // Act
+        UserResponse response = userService.getUserById(1);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(1, response.getUserId());
+        assertEquals("staff1", response.getUsername());
+        verify(userRepository, times(1)).findById(1);
+    }
+
+    @Test
+    void getUserById_NotFound_ThrowsException() {
+        // Arrange
+        when(userRepository.findById(99)).thenReturn(java.util.Optional.empty());
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            userService.getUserById(99);
+        });
+
+        assertTrue(exception.getMessage().contains("Không tìm thấy tài khoản với ID: 99"));
+        verify(userRepository, times(1)).findById(99);
+    }
 }
