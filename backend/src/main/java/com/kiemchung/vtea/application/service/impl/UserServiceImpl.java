@@ -68,6 +68,19 @@ public class UserServiceImpl implements UserService {
         return mapToResponse(user);
     }
 
+    @Override
+    public UserResponse updateUser(Integer id, com.kiemchung.vtea.domain.dto.request.UpdateUserRequest request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với ID: " + id));
+
+        if (request.getFullName() != null) user.setFullName(request.getFullName());
+        if (request.getPhone() != null) user.setPhone(request.getPhone());
+        if (request.getRole() != null) user.setRole(request.getRole());
+        if (request.getStatus() != null) user.setStatus(request.getStatus());
+
+        return mapToResponse(userRepository.save(user));
+    }
+
     private UserResponse mapToResponse(User user) {
         UserResponse response = new UserResponse();
         response.setUserId(user.getUserId());

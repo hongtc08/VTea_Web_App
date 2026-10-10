@@ -45,6 +45,22 @@ public class UserController {
     }
 
     /**
+     * API cập nhật tài khoản.
+     * PUT /api/users/{id}
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateUser(@PathVariable Integer id, @RequestBody com.kiemchung.vtea.domain.dto.request.UpdateUserRequest request) {
+        try {
+            return ResponseEntity.ok(userService.updateUser(id, request));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Lỗi server: " + e.getMessage());
+        }
+    }
+
+    /**
      * API tạo tài khoản mới.
      */
     @PostMapping

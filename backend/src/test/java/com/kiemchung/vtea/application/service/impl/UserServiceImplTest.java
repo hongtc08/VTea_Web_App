@@ -140,4 +140,29 @@ public class UserServiceImplTest {
         assertTrue(exception.getMessage().contains("Không tìm thấy tài khoản với ID: 99"));
         verify(userRepository, times(1)).findById(99);
     }
+
+    @Test
+    void updateUser_Success() {
+        // Arrange
+        com.kiemchung.vtea.domain.dto.request.UpdateUserRequest updateRequest = new com.kiemchung.vtea.domain.dto.request.UpdateUserRequest();
+        updateRequest.setFullName("Nguyen Van B");
+        updateRequest.setPhone("0999999999");
+        updateRequest.setStatus(Status.DELETED);
+
+        when(userRepository.findById(1)).thenReturn(java.util.Optional.of(savedUser));
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        // Act
+        UserResponse response = userService.updateUser(1, updateRequest);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals("Nguyen Van B", response.getFullName());
+        assertEquals("0999999999", response.getPhone());
+        assertEquals(Status.DELETED, response.getStatus());
+        assertEquals(Role.STAFF, response.getRole()); // Role không bị ghi đè thành null
+        
+        verify(userRepository, times(1)).findById(1);
+        verify(userRepository, times(1)).save(any(User.class));
+    }
 }

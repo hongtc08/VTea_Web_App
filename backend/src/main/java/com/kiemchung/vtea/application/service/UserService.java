@@ -1,6 +1,7 @@
 package com.kiemchung.vtea.application.service;
 
 import com.kiemchung.vtea.domain.dto.request.CreateUserRequest;
+import com.kiemchung.vtea.domain.dto.request.UpdateUserRequest;
 import com.kiemchung.vtea.domain.dto.response.UserResponse;
 
 import java.util.List;
@@ -12,4 +13,5 @@ public interface UserService {
     UserResponse createUser(CreateUserRequest request);
     List<UserResponse> getAllUsers();
     UserResponse getUserById(Integer id);
+    UserResponse updateUser(Integer id, UpdateUserRequest request);
 }
