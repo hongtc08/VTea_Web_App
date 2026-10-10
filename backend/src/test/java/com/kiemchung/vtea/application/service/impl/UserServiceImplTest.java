@@ -165,4 +165,34 @@ public class UserServiceImplTest {
         verify(userRepository, times(1)).findById(1);
         verify(userRepository, times(1)).save(any(User.class));
     }
+
+    @Test
+    void deleteUser_Success() {
+        // Arrange
+        when(userRepository.findById(1)).thenReturn(java.util.Optional.of(savedUser));
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        // Act
+        userService.deleteUser(1);
+
+        // Assert
+        assertEquals(Status.DELETED, savedUser.getStatus());
+        verify(userRepository, times(1)).findById(1);
+        verify(userRepository, times(1)).save(savedUser);
+    }
+
+    @Test
+    void deleteUser_NotFound_ThrowsException() {
+        // Arrange
+        when(userRepository.findById(99)).thenReturn(java.util.Optional.empty());
+
+        // Act & Assert
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            userService.deleteUser(99);
+        });
+
+        assertTrue(exception.getMessage().contains("Không tìm thấy tài khoản với ID: 99"));
+        verify(userRepository, times(1)).findById(99);
+        verify(userRepository, never()).save(any(User.class));
+    }
 }

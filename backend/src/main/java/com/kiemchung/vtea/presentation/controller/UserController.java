@@ -61,6 +61,23 @@ public class UserController {
     }
 
     /**
+     * API xóa tài khoản (Soft Delete).
+     * DELETE /api/users/{id}
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deleteUser(@PathVariable Integer id) {
+        try {
+            userService.deleteUser(id);
+            return ResponseEntity.ok("Xóa tài khoản thành công!");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Lỗi server: " + e.getMessage());
+        }
+    }
+
+    /**
      * API tạo tài khoản mới.
      */
     @PostMapping

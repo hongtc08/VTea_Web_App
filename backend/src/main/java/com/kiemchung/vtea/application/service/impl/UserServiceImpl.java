@@ -81,6 +81,16 @@ public class UserServiceImpl implements UserService {
         return mapToResponse(userRepository.save(user));
     }
 
+    @Override
+    public void deleteUser(Integer id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với ID: " + id));
+
+        // Soft Delete: Chuyển trạng thái sang DELETED thay vì xóa hẳn khỏi DB
+        user.setStatus(Status.DELETED);
+        userRepository.save(user);
+    }
+
     private UserResponse mapToResponse(User user) {
         UserResponse response = new UserResponse();
         response.setUserId(user.getUserId());
