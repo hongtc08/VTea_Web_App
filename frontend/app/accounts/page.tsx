@@ -88,7 +88,7 @@ export default function AccountsPage() {
                 setActiveTab={setActiveTab}
             />
 
-            <EmployeeTable 
+            <EmployeeTable
                 employees={filteredEmployees}
                 onEdit={(emp) => { setEmployeeToEdit(emp); setIsModalOpen(true); }}
                 onChangePassword={(emp) => { setEmployeeToEdit(emp); setIsPasswordModalOpen(true); }}
