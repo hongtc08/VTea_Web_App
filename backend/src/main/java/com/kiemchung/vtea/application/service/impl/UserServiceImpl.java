@@ -11,9 +11,11 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 /**
  * Class thực thi các nghiệp vụ quản lý User.
- * Chịu trách nhiệm kiểm tra logic (trùng lặp username), băm mật khẩu bảo mật (BCrypt), và lưu xuống Database.
  */
 @Service
 public class UserServiceImpl implements UserService {
@@ -49,15 +51,55 @@ public class UserServiceImpl implements UserService {
         User savedUser = userRepository.save(user);
 
         // Chuyển sang DTO để trả về
-        UserResponse response = new UserResponse();
-        response.setUserId(savedUser.getUserId());
-        response.setUsername(savedUser.getUsername());
-        response.setFullName(savedUser.getFullName());
-        response.setPhone(savedUser.getPhone());
-        response.setRole(savedUser.getRole());
-        response.setStatus(savedUser.getStatus());
-        response.setCreatedAt(savedUser.getCreatedAt());
+        return mapToResponse(savedUser);
+    }
 
+    @Override
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public UserResponse getUserById(Integer id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với ID: " + id));
+        return mapToResponse(user);
+    }
+
+    @Override
+    public UserResponse updateUser(Integer id, com.kiemchung.vtea.domain.dto.request.UpdateUserRequest request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với ID: " + id));
+
+        if (request.getFullName() != null) user.setFullName(request.getFullName());
+        if (request.getPhone() != null) user.setPhone(request.getPhone());
+        if (request.getRole() != null) user.setRole(request.getRole());
+        if (request.getStatus() != null) user.setStatus(request.getStatus());
+
+        return mapToResponse(userRepository.save(user));
+    }
+
+    @Override
+    public void deleteUser(Integer id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với ID: " + id));
+
+        // Soft Delete: Chuyển trạng thái sang DELETED thay vì xóa hẳn khỏi DB
+        user.setStatus(Status.DELETED);
+        userRepository.save(user);
+    }
+
+    private UserResponse mapToResponse(User user) {
+        UserResponse response = new UserResponse();
+        response.setUserId(user.getUserId());
+        response.setUsername(user.getUsername());
+        response.setFullName(user.getFullName());
+        response.setPhone(user.getPhone());
+        response.setRole(user.getRole());
+        response.setStatus(user.getStatus());
+        response.setCreatedAt(user.getCreatedAt());
         return response;
     }
 }
