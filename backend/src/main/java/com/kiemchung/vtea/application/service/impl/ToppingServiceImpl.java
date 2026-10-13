@@ -8,6 +8,7 @@ import com.kiemchung.vtea.domain.entity.Topping;
 import com.kiemchung.vtea.domain.repository.ToppingRepository;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -48,12 +49,20 @@ public class ToppingServiceImpl implements ToppingService {
      */
     @Override
     public ToppingResponse createTopping(CreateToppingRequest request) {
-        if (toppingRepository.existsByName(request.getName())) {
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new RuntimeException("Tên topping không được để trống!");
+        }
+        if (request.getPrice() == null || request.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Giá bán topping phải lớn hơn 0!");
+        }
+
+        String trimmedName = request.getName().trim();
+        if (toppingRepository.existsByName(trimmedName)) {
             throw new RuntimeException("Tên topping đã tồn tại!");
         }
 
         Topping topping = new Topping();
-        topping.setName(request.getName());
+        topping.setName(trimmedName);
         topping.setPrice(request.getPrice());
         topping.setImageUrl(request.getImageUrl());
         topping.setIsAvailable(request.getIsAvailable() != null ? request.getIsAvailable() : true);
@@ -70,8 +79,21 @@ public class ToppingServiceImpl implements ToppingService {
         Topping topping = toppingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy topping với ID: " + id));
 
-        if (request.getName() != null) topping.setName(request.getName());
-        if (request.getPrice() != null) topping.setPrice(request.getPrice());
+        if (request.getName() != null && !request.getName().trim().isEmpty()) {
+            String newName = request.getName().trim();
+            if (!newName.equalsIgnoreCase(topping.getName()) && toppingRepository.existsByName(newName)) {
+                throw new RuntimeException("Tên topping đã tồn tại!");
+            }
+            topping.setName(newName);
+        }
+
+        if (request.getPrice() != null) {
+            if (request.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("Giá bán topping phải lớn hơn 0!");
+            }
+            topping.setPrice(request.getPrice());
+        }
+
         if (request.getImageUrl() != null) topping.setImageUrl(request.getImageUrl());
         if (request.getIsAvailable() != null) topping.setIsAvailable(request.getIsAvailable());
 

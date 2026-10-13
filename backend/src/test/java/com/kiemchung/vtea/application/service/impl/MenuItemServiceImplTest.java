@@ -3,8 +3,10 @@ package com.kiemchung.vtea.application.service.impl;
 import com.kiemchung.vtea.domain.dto.request.CreateMenuItemRequest;
 import com.kiemchung.vtea.domain.dto.request.UpdateMenuItemRequest;
 import com.kiemchung.vtea.domain.dto.response.MenuItemResponse;
-import com.kiemchung.vtea.domain.entity.MenuItem;
-import com.kiemchung.vtea.domain.repository.MenuItemRepository;
+import com.kiemchung.vtea.domain.entity.Category;
+import com.kiemchung.vtea.domain.entity.Product;
+import com.kiemchung.vtea.domain.repository.CategoryRepository;
+import com.kiemchung.vtea.domain.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,23 +26,32 @@ import static org.mockito.Mockito.*;
 class MenuItemServiceImplTest {
 
     @Mock
-    private MenuItemRepository repository;
+    private ProductRepository productRepository;
+
+    @Mock
+    private CategoryRepository categoryRepository;
 
     @InjectMocks
     private MenuItemServiceImpl service;
 
-    private MenuItem sampleItem;
+    private Category sampleCategory;
+    private Product sampleProduct;
     private CreateMenuItemRequest createRequest;
 
     @BeforeEach
     void setUp() {
-        sampleItem = new MenuItem();
-        sampleItem.setId(1L);
-        sampleItem.setName("Trà Sữa Truyền Thống");
-        sampleItem.setDescription("Thơm ngon đậm vị");
-        sampleItem.setPrice(new BigDecimal("35000"));
-        sampleItem.setImageUrl("/images/tra-sua.png");
-        sampleItem.setCategory("Trà sữa");
+        sampleCategory = new Category();
+        sampleCategory.setCategoryId(1);
+        sampleCategory.setName("Trà sữa");
+        sampleCategory.setIsAvailable(true);
+
+        sampleProduct = new Product();
+        sampleProduct.setProductId(1);
+        sampleProduct.setName("Trà Sữa Truyền Thống");
+        sampleProduct.setPrice(new BigDecimal("35000"));
+        sampleProduct.setImageUrl("/images/tra-sua.png");
+        sampleProduct.setIsAvailable(true);
+        sampleProduct.setCategory(sampleCategory);
 
         createRequest = new CreateMenuItemRequest();
         createRequest.setName("Trà Sữa Truyền Thống");
@@ -52,126 +63,221 @@ class MenuItemServiceImplTest {
 
     @Test
     void getAllMenuItems_Success() {
-        when(repository.findAll()).thenReturn(List.of(sampleItem));
+        Product productNoCatNoId = new Product();
+        productNoCatNoId.setProductId(null);
+        productNoCatNoId.setName("Món lẻ");
+        productNoCatNoId.setPrice(new BigDecimal("10000"));
+        productNoCatNoId.setCategory(null);
+
+        when(productRepository.findAll()).thenReturn(List.of(sampleProduct, productNoCatNoId));
 
         List<MenuItemResponse> result = service.getAllMenuItems();
 
-        assertEquals(1, result.size());
+        assertEquals(2, result.size());
         MenuItemResponse res = result.get(0);
         assertEquals(1L, res.getId());
         assertEquals("Trà Sữa Truyền Thống", res.getName());
-        assertEquals("Thơm ngon đậm vị", res.getDescription());
         assertEquals(new BigDecimal("35000"), res.getPrice());
         assertEquals("/images/tra-sua.png", res.getImageUrl());
         assertEquals("Trà sữa", res.getCategory());
-        verify(repository, times(1)).findAll();
+
+        assertNull(result.get(1).getId());
+        assertNull(result.get(1).getCategory());
+        verify(productRepository, times(1)).findAll();
     }
 
     @Test
     void getMenuItemById_Success() {
-        when(repository.findById(1L)).thenReturn(Optional.of(sampleItem));
+        when(productRepository.findById(1)).thenReturn(Optional.of(sampleProduct));
 
         MenuItemResponse res = service.getMenuItemById(1L);
 
         assertNotNull(res);
         assertEquals(1L, res.getId());
         assertEquals("Trà Sữa Truyền Thống", res.getName());
-        verify(repository, times(1)).findById(1L);
+        verify(productRepository, times(1)).findById(1);
     }
 
     @Test
     void getMenuItemById_NotFound_ThrowsException() {
-        when(repository.findById(99L)).thenReturn(Optional.empty());
+        when(productRepository.findById(99)).thenReturn(Optional.empty());
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> service.getMenuItemById(99L));
         assertTrue(ex.getMessage().contains("Không tìm thấy món nước với ID: 99"));
-        verify(repository, times(1)).findById(99L);
+        verify(productRepository, times(1)).findById(99);
     }
 
     @Test
-    void createMenuItem_Success() {
-        when(repository.existsByName("Trà Sữa Truyền Thống")).thenReturn(false);
-        when(repository.save(any(MenuItem.class))).thenReturn(sampleItem);
+    void createMenuItem_Success_ExistingCategory() {
+        when(productRepository.existsByName("Trà Sữa Truyền Thống")).thenReturn(false);
+        when(categoryRepository.findByNameIgnoreCase("Trà sữa")).thenReturn(Optional.of(sampleCategory));
+        when(productRepository.save(any(Product.class))).thenReturn(sampleProduct);
 
         MenuItemResponse res = service.createMenuItem(createRequest);
 
         assertNotNull(res);
         assertEquals("Trà Sữa Truyền Thống", res.getName());
-        assertEquals(new BigDecimal("35000"), res.getPrice());
-        verify(repository, times(1)).existsByName("Trà Sữa Truyền Thống");
-        verify(repository, times(1)).save(any(MenuItem.class));
+        assertEquals("Trà sữa", res.getCategory());
+        verify(productRepository, times(1)).save(any(Product.class));
+    }
+
+    @Test
+    void createMenuItem_Success_NewDefaultCategory() {
+        createRequest.setCategory("  ");
+        when(productRepository.existsByName("Trà Sữa Truyền Thống")).thenReturn(false);
+        when(categoryRepository.findByNameIgnoreCase("Khác")).thenReturn(Optional.empty());
+        when(categoryRepository.save(any(Category.class))).thenAnswer(i -> i.getArguments()[0]);
+        when(productRepository.save(any(Product.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        MenuItemResponse res = service.createMenuItem(createRequest);
+
+        assertNotNull(res);
+        assertEquals("Khác", res.getCategory());
+        verify(categoryRepository, times(1)).save(any(Category.class));
+    }
+
+    @Test
+    void createMenuItem_Success_NullCategory() {
+        createRequest.setCategory(null);
+        when(productRepository.existsByName("Trà Sữa Truyền Thống")).thenReturn(false);
+        when(categoryRepository.findByNameIgnoreCase("Khác")).thenReturn(Optional.of(sampleCategory));
+        when(productRepository.save(any(Product.class))).thenReturn(sampleProduct);
+
+        MenuItemResponse res = service.createMenuItem(createRequest);
+
+        assertNotNull(res);
+    }
+
+    @Test
+    void createMenuItem_ThrowsException_WhenNameBlankOrNull() {
+        createRequest.setName("   ");
+        assertThrows(RuntimeException.class, () -> service.createMenuItem(createRequest));
+
+        createRequest.setName(null);
+        assertThrows(RuntimeException.class, () -> service.createMenuItem(createRequest));
+    }
+
+    @Test
+    void createMenuItem_ThrowsException_WhenPriceInvalid() {
+        createRequest.setPrice(BigDecimal.ZERO);
+        assertThrows(RuntimeException.class, () -> service.createMenuItem(createRequest));
+
+        createRequest.setPrice(null);
+        assertThrows(RuntimeException.class, () -> service.createMenuItem(createRequest));
     }
 
     @Test
     void createMenuItem_ThrowsException_WhenNameExists() {
-        when(repository.existsByName("Trà Sữa Truyền Thống")).thenReturn(true);
+        when(productRepository.existsByName("Trà Sữa Truyền Thống")).thenReturn(true);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> service.createMenuItem(createRequest));
         assertEquals("Tên món nước đã tồn tại!", ex.getMessage());
-        verify(repository, never()).save(any(MenuItem.class));
+        verify(productRepository, never()).save(any(Product.class));
     }
 
     @Test
     void updateMenuItem_Success_AllFields() {
         UpdateMenuItemRequest updateRequest = new UpdateMenuItemRequest();
         updateRequest.setName("Trà Đào Cam Sả");
-        updateRequest.setDescription("Mát lạnh");
         updateRequest.setPrice(new BigDecimal("45000"));
         updateRequest.setImageUrl("/images/tra-dao.png");
         updateRequest.setCategory("Trà");
 
-        when(repository.findById(1L)).thenReturn(Optional.of(sampleItem));
-        when(repository.save(any(MenuItem.class))).thenAnswer(i -> i.getArguments()[0]);
+        Category newCat = new Category();
+        newCat.setCategoryId(2);
+        newCat.setName("Trà");
+
+        when(productRepository.findById(1)).thenReturn(Optional.of(sampleProduct));
+        when(productRepository.existsByName("Trà Đào Cam Sả")).thenReturn(false);
+        when(categoryRepository.findByNameIgnoreCase("Trà")).thenReturn(Optional.of(newCat));
+        when(productRepository.save(any(Product.class))).thenAnswer(i -> i.getArguments()[0]);
 
         MenuItemResponse res = service.updateMenuItem(1L, updateRequest);
 
         assertEquals("Trà Đào Cam Sả", res.getName());
-        assertEquals("Mát lạnh", res.getDescription());
         assertEquals(new BigDecimal("45000"), res.getPrice());
         assertEquals("/images/tra-dao.png", res.getImageUrl());
         assertEquals("Trà", res.getCategory());
-        verify(repository, times(1)).save(sampleItem);
+        verify(productRepository, times(1)).save(sampleProduct);
+    }
+
+    @Test
+    void updateMenuItem_SameName_DoesNotCheckDuplicate() {
+        UpdateMenuItemRequest updateRequest = new UpdateMenuItemRequest();
+        updateRequest.setName("trà sữa truyền thống");
+        updateRequest.setCategory("   ");
+
+        when(productRepository.findById(1)).thenReturn(Optional.of(sampleProduct));
+        when(productRepository.save(any(Product.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        MenuItemResponse res = service.updateMenuItem(1L, updateRequest);
+
+        assertEquals("trà sữa truyền thống", res.getName());
+        verify(productRepository, never()).existsByName(anyString());
+    }
+
+    @Test
+    void updateMenuItem_ThrowsException_WhenNewNameExists() {
+        UpdateMenuItemRequest updateRequest = new UpdateMenuItemRequest();
+        updateRequest.setName("Món Trùng");
+
+        when(productRepository.findById(1)).thenReturn(Optional.of(sampleProduct));
+        when(productRepository.existsByName("Món Trùng")).thenReturn(true);
+
+        assertThrows(RuntimeException.class, () -> service.updateMenuItem(1L, updateRequest));
+    }
+
+    @Test
+    void updateMenuItem_ThrowsException_WhenPriceInvalid() {
+        UpdateMenuItemRequest updateRequest = new UpdateMenuItemRequest();
+        updateRequest.setName("   ");
+        updateRequest.setPrice(new BigDecimal("-5000"));
+
+        when(productRepository.findById(1)).thenReturn(Optional.of(sampleProduct));
+
+        assertThrows(RuntimeException.class, () -> service.updateMenuItem(1L, updateRequest));
     }
 
     @Test
     void updateMenuItem_Success_NullFields() {
         UpdateMenuItemRequest emptyRequest = new UpdateMenuItemRequest();
 
-        when(repository.findById(1L)).thenReturn(Optional.of(sampleItem));
-        when(repository.save(any(MenuItem.class))).thenAnswer(i -> i.getArguments()[0]);
+        when(productRepository.findById(1)).thenReturn(Optional.of(sampleProduct));
+        when(productRepository.save(any(Product.class))).thenAnswer(i -> i.getArguments()[0]);
 
         MenuItemResponse res = service.updateMenuItem(1L, emptyRequest);
 
         assertEquals("Trà Sữa Truyền Thống", res.getName());
-        assertEquals("Thơm ngon đậm vị", res.getDescription());
         assertEquals(new BigDecimal("35000"), res.getPrice());
-        verify(repository, times(1)).save(sampleItem);
+        verify(productRepository, times(1)).save(sampleProduct);
     }
 
     @Test
     void updateMenuItem_NotFound_ThrowsException() {
         UpdateMenuItemRequest updateRequest = new UpdateMenuItemRequest();
-        when(repository.findById(99L)).thenReturn(Optional.empty());
+        when(productRepository.findById(99)).thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class, () -> service.updateMenuItem(99L, updateRequest));
-        verify(repository, never()).save(any(MenuItem.class));
+        verify(productRepository, never()).save(any(Product.class));
     }
 
     @Test
     void deleteMenuItem_Success() {
-        when(repository.findById(1L)).thenReturn(Optional.of(sampleItem));
+        when(productRepository.findById(1)).thenReturn(Optional.of(sampleProduct));
+        when(productRepository.save(any(Product.class))).thenAnswer(i -> i.getArguments()[0]);
 
         service.deleteMenuItem(1L);
 
-        verify(repository, times(1)).findById(1L);
-        verify(repository, times(1)).delete(sampleItem);
+        assertFalse(sampleProduct.getIsAvailable());
+        verify(productRepository, times(1)).findById(1);
+        verify(productRepository, times(1)).save(sampleProduct);
     }
 
     @Test
     void deleteMenuItem_NotFound_ThrowsException() {
-        when(repository.findById(99L)).thenReturn(Optional.empty());
+        when(productRepository.findById(99)).thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class, () -> service.deleteMenuItem(99L));
-        verify(repository, never()).delete(any(MenuItem.class));
+        verify(productRepository, never()).save(any(Product.class));
     }
 }
