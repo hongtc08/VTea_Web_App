@@ -8,9 +8,15 @@ import CartItemRow from './CartItemRow';
 
 interface CartProps {
   onOpenToppingModalForCartItem?: (item: CartItem) => void;
+  onCheckout?: () => void;
+  isCheckingOut?: boolean;
 }
 
-export default function Cart({ onOpenToppingModalForCartItem }: CartProps) {
+export default function Cart({
+  onOpenToppingModalForCartItem,
+  onCheckout,
+  isCheckingOut = false,
+}: CartProps) {
   const {
     cartItems,
     paymentMethod,
@@ -23,7 +29,6 @@ export default function Cart({ onOpenToppingModalForCartItem }: CartProps) {
     subtotal,
     vat,
     total,
-    checkout,
   } = useCart();
 
   const formattedSubtotal =
@@ -123,8 +128,8 @@ export default function Cart({ onOpenToppingModalForCartItem }: CartProps) {
         <div className="mt-4">
           <button
             type="button"
-            onClick={checkout}
-            disabled={cartItems.length === 0}
+            onClick={onCheckout}
+            disabled={cartItems.length === 0 || isCheckingOut}
             className="w-full rounded-xl bg-primary py-3 px-4 text-sm font-bold text-accent shadow-soft hover:bg-primary-hover active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all flex items-center justify-center gap-2"
           >
             <CreditCard size={17} />
