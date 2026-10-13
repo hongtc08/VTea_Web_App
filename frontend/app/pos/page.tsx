@@ -1,56 +1,90 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Product, SelectedTopping, CartItem } from '@/types/pos';
-import { CATEGORIES, INITIAL_PRODUCTS } from '@/data/mockProducts';
+import { CartItem, Product, SelectedTopping, Topping } from '@/types/pos';
+import { posService } from '@/services/posService';
 import ProductList from '@/components/pos/ProductList';
 import Cart from '@/components/pos/Cart';
 import ToppingModal from '@/components/pos/ToppingModal';
 import { useCart } from '@/contexts/CartContext';
 
+const ALL_CATEGORY = 'Tất cả';
+
 export default function PosPage() {
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([ALL_CATEGORY]);
+  const [toppings, setToppings] = useState<Topping[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORY);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isProductsLoading, setIsProductsLoading] = useState(true);
+  const [isToppingsLoading, setIsToppingsLoading] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [toppingsError, setToppingsError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Quản lý Modal Topping
   const [isToppingModalOpen, setIsToppingModalOpen] = useState(false);
   const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
-  // Nếu modal được mở từ 1 item đã có trong giỏ hàng:
   const [targetCartItemId, setTargetCartItemId] = useState<string | null>(null);
 
   const { addToCart, addToCartItemToppings, checkout, clearCart, cartItems } = useCart();
 
-  // Thử fetch dữ liệu món từ API backend /api/menu nếu server Spring Boot đang chạy
   useEffect(() => {
-    async function fetchMenu() {
+    async function fetchCategoriesAndToppings() {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-        const res = await fetch(`${apiUrl}/api/menu`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            const mapped = data.map((item: any) => ({
-              id: item.id,
-              name: item.name,
-              price: Number(item.price),
-              category: item.category || 'Khác',
-              imageUrl: item.imageUrl || '/images/products/bc-xu-1779541523944.png',
-              description: item.description,
-            }));
-            setProducts(mapped);
-          }
-        }
-      } catch {
-        // Giữ INITIAL_PRODUCTS khi backend chưa bật
+        const [categoryData, toppingData] = await Promise.all([
+          posService.getCategories(),
+          posService.getToppings(),
+        ]);
+        setCategories(categoryData);
+        setToppings(toppingData);
+        setToppingsError(null);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Không thể tải dữ liệu POS.';
+        setToppingsError(message);
+        toast.error(message);
+      } finally {
+        setIsToppingsLoading(false);
       }
     }
-    fetchMenu();
+
+    fetchCategoriesAndToppings();
   }, []);
 
-  // Lắng nghe phím tắt bàn phím (F1: Focus Search, F12: Thanh toán, Esc: Xóa giỏ hàng / đóng modal)
+  useEffect(() => {
+    let isActive = true;
+
+    async function fetchProducts() {
+      setIsProductsLoading(true);
+      setProductsError(null);
+
+      try {
+        const data = await posService.getProducts({
+          search: searchQuery,
+          category: selectedCategory,
+        });
+        if (isActive) setProducts(data);
+      } catch (error) {
+        if (isActive) {
+          const message =
+            error instanceof Error ? error.message : 'Không thể tải danh sách món.';
+          setProducts([]);
+          setProductsError(message);
+        }
+      } finally {
+        if (isActive) setIsProductsLoading(false);
+      }
+    }
+
+    const timeoutId = window.setTimeout(fetchProducts, 250);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchQuery, selectedCategory]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F1') {
@@ -76,43 +110,26 @@ export default function PosPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [cartItems, isToppingModalOpen, checkout, clearCart]);
 
-  // Lọc sản phẩm theo danh mục và từ khóa tìm kiếm
-  const filteredProducts = products.filter((p) => {
-    const matchesCategory =
-      selectedCategory === 'Tất cả' ||
-      p.category.toLowerCase() === selectedCategory.toLowerCase();
-    const matchesSearch =
-      searchQuery.trim() === '' ||
-      p.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-      p.category.toLowerCase().includes(searchQuery.toLowerCase().trim());
-    return matchesCategory && matchesSearch;
-  });
-
-  // Khi click vào 1 món ăn trên danh sách bên trái: Mở ToppingModal để chọn topping trước khi thêm vào giỏ
   const handleProductClick = (product: Product) => {
     setTargetCartItemId(null);
     setSelectedProductForModal(product);
     setIsToppingModalOpen(true);
   };
 
-  // Khi bấm nút "+ Thêm topping" trên 1 món trong giỏ hàng: Mở ToppingModal cho món đó
   const handleOpenToppingModalForCartItem = (cartItem: CartItem) => {
     setTargetCartItemId(cartItem.id);
     setSelectedProductForModal(cartItem.product);
     setIsToppingModalOpen(true);
   };
 
-  // Xác nhận từ Modal Topping
   const handleConfirmTopping = (
     product: Product,
-    toppings: SelectedTopping[]
+    selectedToppings: SelectedTopping[]
   ) => {
     if (targetCartItemId) {
-      // Đang thêm topping cho 1 món đã có trong giỏ hàng
-      addToCartItemToppings(targetCartItemId, toppings);
+      addToCartItemToppings(targetCartItemId, selectedToppings);
     } else {
-      // Thêm mới món vào giỏ hàng kèm topping
-      addToCart(product, toppings);
+      addToCart(product, selectedToppings);
     }
     setTargetCartItemId(null);
     setSelectedProductForModal(null);
@@ -120,29 +137,31 @@ export default function PosPage() {
 
   return (
     <div className="flex h-full w-full gap-5 p-5 bg-background overflow-hidden">
-      {/* Cột trái: Danh sách món ăn có thanh search */}
       <div className="flex-1 min-w-0 h-full flex flex-col">
         <ProductList
-          products={filteredProducts}
-          categories={CATEGORIES}
+          products={products}
+          categories={categories}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onProductClick={handleProductClick}
           searchInputRef={searchInputRef}
+          isLoading={isProductsLoading}
+          error={productsError}
         />
       </div>
 
-      {/* Cột phải: Giỏ hàng */}
       <div className="w-[360px] xl:w-[390px] shrink-0 h-full">
         <Cart onOpenToppingModalForCartItem={handleOpenToppingModalForCartItem} />
       </div>
 
-      {/* Modal Thêm Topping duy nhất cho cả click món và bấm Thêm topping ở giỏ hàng */}
       <ToppingModal
         isOpen={isToppingModalOpen}
         product={selectedProductForModal}
+        toppings={toppings}
+        isLoading={isToppingsLoading}
+        error={toppingsError}
         onClose={() => {
           setIsToppingModalOpen(false);
           setSelectedProductForModal(null);
