@@ -30,21 +30,22 @@ public class MenuItemServiceImpl implements MenuItemService {
     }
 
     /**
-     * Lấy tất cả các món nước trong DB và chuyển đổi sang định dạng DTO.
+     * Lấy danh sách các món nước đang mở bán (isAvailable = true) trong DB và chuyển đổi sang DTO.
      */
     @Override
     public List<MenuItemResponse> getAllMenuItems() {
-        return productRepository.findAll().stream()
+        return productRepository.findByIsAvailableTrue().stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Lấy thông tin chi tiết 1 món nước theo ID.
+     * Lấy thông tin chi tiết 1 món nước đang mở bán theo ID.
      */
     @Override
     public MenuItemResponse getMenuItemById(Long id) {
         Product product = productRepository.findById(id.intValue())
+                .filter(p -> Boolean.TRUE.equals(p.getIsAvailable()))
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy món nước với ID: " + id));
         return mapToResponse(product);
     }
@@ -113,7 +114,7 @@ public class MenuItemServiceImpl implements MenuItemService {
     }
 
     /**
-     * Xóa món nước (Soft Delete: đặt isAvailable = false để tránh lỗi khóa ngoại với đơn hàng cũ).
+     * Xóa món nước (Soft Delete: đặt isAvailable = false thay vì xóa hẳn khỏi DB).
      */
     @Override
     public void deleteMenuItem(Long id) {

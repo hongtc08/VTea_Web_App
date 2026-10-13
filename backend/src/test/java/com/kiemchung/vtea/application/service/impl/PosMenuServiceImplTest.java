@@ -73,10 +73,10 @@ class PosMenuServiceImplTest {
 
     @Test
     void getPosMenu_Success_NoFilter() {
-        when(categoryRepository.findAvailableCategories()).thenReturn(List.of(sampleCategory));
+        when(categoryRepository.findByIsAvailableTrue()).thenReturn(List.of(sampleCategory));
         when(productRepository.searchAvailableProductsForPos(null, null, null))
                 .thenReturn(List.of(sampleProductWithCat, sampleProductWithoutCat));
-        when(toppingRepository.findAvailableToppings()).thenReturn(List.of(sampleTopping));
+        when(toppingRepository.findByIsAvailableTrue()).thenReturn(List.of(sampleTopping));
 
         PosMenuResponse response = posMenuService.getPosMenu(null, null, null);
 
@@ -96,17 +96,17 @@ class PosMenuServiceImplTest {
         assertEquals(1, response.getToppings().size());
         assertEquals("Trân châu đen", response.getToppings().get(0).getName());
 
-        verify(categoryRepository, times(1)).findAvailableCategories();
+        verify(categoryRepository, times(1)).findByIsAvailableTrue();
         verify(productRepository, times(1)).searchAvailableProductsForPos(null, null, null);
-        verify(toppingRepository, times(1)).findAvailableToppings();
+        verify(toppingRepository, times(1)).findByIsAvailableTrue();
     }
 
     @Test
     void getPosMenu_Success_WithKeywordAndCategory() {
-        when(categoryRepository.findAvailableCategories()).thenReturn(List.of(sampleCategory));
+        when(categoryRepository.findByIsAvailableTrue()).thenReturn(List.of(sampleCategory));
         when(productRepository.searchAvailableProductsForPos("bạc", 1, "Cà phê"))
                 .thenReturn(List.of(sampleProductWithCat));
-        when(toppingRepository.findAvailableToppings()).thenReturn(List.of(sampleTopping));
+        when(toppingRepository.findByIsAvailableTrue()).thenReturn(List.of(sampleTopping));
 
         PosMenuResponse response = posMenuService.getPosMenu("  bạc  ", 1, " Cà phê ");
 
@@ -118,9 +118,9 @@ class PosMenuServiceImplTest {
 
     @Test
     void getPosMenu_BlankKeywordAndTatCaCategory_TreatedAsNull() {
-        when(categoryRepository.findAvailableCategories()).thenReturn(List.of());
+        when(categoryRepository.findByIsAvailableTrue()).thenReturn(List.of());
         when(productRepository.searchAvailableProductsForPos(null, 2, null)).thenReturn(List.of());
-        when(toppingRepository.findAvailableToppings()).thenReturn(List.of());
+        when(toppingRepository.findByIsAvailableTrue()).thenReturn(List.of());
 
         PosMenuResponse response = posMenuService.getPosMenu("   ", 2, "Tất cả");
         assertNotNull(response);

@@ -67,9 +67,10 @@ class MenuItemServiceImplTest {
         productNoCatNoId.setProductId(null);
         productNoCatNoId.setName("Món lẻ");
         productNoCatNoId.setPrice(new BigDecimal("10000"));
+        productNoCatNoId.setIsAvailable(true);
         productNoCatNoId.setCategory(null);
 
-        when(productRepository.findAll()).thenReturn(List.of(sampleProduct, productNoCatNoId));
+        when(productRepository.findByIsAvailableTrue()).thenReturn(List.of(sampleProduct, productNoCatNoId));
 
         List<MenuItemResponse> result = service.getAllMenuItems();
 
@@ -83,7 +84,7 @@ class MenuItemServiceImplTest {
 
         assertNull(result.get(1).getId());
         assertNull(result.get(1).getCategory());
-        verify(productRepository, times(1)).findAll();
+        verify(productRepository, times(1)).findByIsAvailableTrue();
     }
 
     @Test
@@ -99,12 +100,14 @@ class MenuItemServiceImplTest {
     }
 
     @Test
-    void getMenuItemById_NotFound_ThrowsException() {
+    void getMenuItemById_NotFoundOrUnavailable_ThrowsException() {
         when(productRepository.findById(99)).thenReturn(Optional.empty());
-
         RuntimeException ex = assertThrows(RuntimeException.class, () -> service.getMenuItemById(99L));
         assertTrue(ex.getMessage().contains("Không tìm thấy món nước với ID: 99"));
-        verify(productRepository, times(1)).findById(99);
+
+        sampleProduct.setIsAvailable(false);
+        when(productRepository.findById(1)).thenReturn(Optional.of(sampleProduct));
+        assertThrows(RuntimeException.class, () -> service.getMenuItemById(1L));
     }
 
     @Test

@@ -50,7 +50,7 @@ class ToppingServiceImplTest {
 
     @Test
     void getAllToppings_Success() {
-        when(toppingRepository.findAll()).thenReturn(List.of(sampleTopping));
+        when(toppingRepository.findByIsAvailableTrue()).thenReturn(List.of(sampleTopping));
 
         List<ToppingResponse> result = toppingService.getAllToppings();
 
@@ -61,7 +61,7 @@ class ToppingServiceImplTest {
         assertEquals(new BigDecimal("5000"), res.getPrice());
         assertEquals("/images/toppings/tran-chau.jpg", res.getImageUrl());
         assertTrue(res.getIsAvailable());
-        verify(toppingRepository, times(1)).findAll();
+        verify(toppingRepository, times(1)).findByIsAvailableTrue();
     }
 
     @Test
@@ -77,12 +77,14 @@ class ToppingServiceImplTest {
     }
 
     @Test
-    void getToppingById_NotFound_ThrowsException() {
+    void getToppingById_NotFoundOrUnavailable_ThrowsException() {
         when(toppingRepository.findById(99)).thenReturn(Optional.empty());
-
         RuntimeException ex = assertThrows(RuntimeException.class, () -> toppingService.getToppingById(99));
         assertTrue(ex.getMessage().contains("Không tìm thấy topping với ID: 99"));
-        verify(toppingRepository, times(1)).findById(99);
+
+        sampleTopping.setIsAvailable(false);
+        when(toppingRepository.findById(1)).thenReturn(Optional.of(sampleTopping));
+        assertThrows(RuntimeException.class, () -> toppingService.getToppingById(1));
     }
 
     @Test

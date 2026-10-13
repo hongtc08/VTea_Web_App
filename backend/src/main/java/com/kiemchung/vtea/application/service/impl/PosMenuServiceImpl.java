@@ -48,7 +48,7 @@ public class PosMenuServiceImpl implements PosMenuService {
                 ? categoryName.trim()
                 : null;
 
-        List<CategoryResponse> categories = categoryRepository.findAvailableCategories().stream()
+        List<CategoryResponse> categories = categoryRepository.findByIsAvailableTrue().stream()
                 .map(this::mapCategoryToResponse)
                 .collect(Collectors.toList());
 
@@ -58,7 +58,7 @@ public class PosMenuServiceImpl implements PosMenuService {
                 .map(this::mapProductToResponse)
                 .collect(Collectors.toList());
 
-        List<ToppingResponse> toppings = toppingRepository.findAvailableToppings().stream()
+        List<ToppingResponse> toppings = toppingRepository.findByIsAvailableTrue().stream()
                 .map(this::mapToppingToResponse)
                 .collect(Collectors.toList());
 

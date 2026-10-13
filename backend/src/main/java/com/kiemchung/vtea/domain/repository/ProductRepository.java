@@ -20,13 +20,18 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     boolean existsByName(String name);
 
     /**
-     * Truy vấn danh sách món đang mở bán tối ưu cho màn hình POS,
+     * Lấy danh sách các món nước đang mở bán (is_available = true).
+     */
+    List<Product> findByIsAvailableTrue();
+
+    /**
+     * Truy vấn danh sách món đang mở bán (is_available = true) tối ưu cho màn hình POS,
      * hỗ trợ lọc theo ID danh mục (categoryId), tên danh mục (categoryName)
      * và tìm kiếm nhanh theo tên món (keyword).
      */
     @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category c " +
-           "WHERE (p.isAvailable IS NULL OR p.isAvailable = true) " +
-           "AND (c IS NULL OR c.isAvailable IS NULL OR c.isAvailable = true) " +
+           "WHERE p.isAvailable = true " +
+           "AND (c IS NULL OR c.isAvailable = true) " +
            "AND (:categoryId IS NULL OR c.categoryId = :categoryId) " +
            "AND (:categoryName IS NULL OR LOWER(c.name) = LOWER(:categoryName)) " +
            "AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')))")

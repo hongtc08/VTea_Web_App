@@ -25,21 +25,22 @@ public class ToppingServiceImpl implements ToppingService {
     }
 
     /**
-     * Lấy danh sách toàn bộ topping và chuyển đổi sang DTO.
+     * Lấy danh sách các topping đang mở bán (isAvailable = true) và chuyển đổi sang DTO.
      */
     @Override
     public List<ToppingResponse> getAllToppings() {
-        return toppingRepository.findAll().stream()
+        return toppingRepository.findByIsAvailableTrue().stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Lấy thông tin chi tiết 1 topping theo ID.
+     * Lấy thông tin chi tiết 1 topping đang mở bán theo ID.
      */
     @Override
     public ToppingResponse getToppingById(Integer id) {
         Topping topping = toppingRepository.findById(id)
+                .filter(t -> Boolean.TRUE.equals(t.getIsAvailable()))
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy topping với ID: " + id));
         return mapToResponse(topping);
     }

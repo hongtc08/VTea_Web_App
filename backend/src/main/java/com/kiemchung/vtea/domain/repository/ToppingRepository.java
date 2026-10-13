@@ -2,7 +2,6 @@ package com.kiemchung.vtea.domain.repository;
 
 import com.kiemchung.vtea.domain.entity.Topping;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,8 +19,7 @@ public interface ToppingRepository extends JpaRepository<Topping, Integer> {
     boolean existsByName(String name);
 
     /**
-     * Lấy danh sách các topping đang mở bán (is_available = true hoặc null) cho màn hình POS.
+     * Lấy danh sách các topping đang mở bán (is_available = true).
      */
-    @Query("SELECT t FROM Topping t WHERE t.isAvailable IS NULL OR t.isAvailable = true")
-    List<Topping> findAvailableToppings();
+    List<Topping> findByIsAvailableTrue();
 }
