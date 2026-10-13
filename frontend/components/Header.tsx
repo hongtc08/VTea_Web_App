@@ -9,7 +9,7 @@ export default function Header() {
 
     const isAdmin = user?.role === 'ROLE_ADMIN';
     const displayName = user?.username || 'Người dùng';
-    const roleLabel = isAdmin ? 'Quản lý (Admin)' : 'Nhân viên (Staff)';
+    const roleLabel = isAdmin ? 'Quản lý' : 'Nhân viên';
     const avatarInitial = displayName.charAt(0).toUpperCase();
 
     return (

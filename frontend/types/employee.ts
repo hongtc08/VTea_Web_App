@@ -6,4 +6,5 @@ export interface Employee {
   phone: string;
   startDate: string;
   status: 'Đang làm việc' | 'Đã khóa';
+  password?: string;
 }
