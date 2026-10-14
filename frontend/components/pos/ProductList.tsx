@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from 'react';
+import React from 'react';
 import { Search } from 'lucide-react';
 import { Product } from '@/types/pos';
 import ProductCard from './ProductCard';
@@ -14,6 +14,8 @@ interface ProductListProps {
   onSearchChange: (q: string) => void;
   onProductClick: (product: Product) => void;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
 export default function ProductList({
@@ -25,10 +27,11 @@ export default function ProductList({
   onSearchChange,
   onProductClick,
   searchInputRef,
+  isLoading = false,
+  error = null,
 }: ProductListProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden pr-2">
-      {/* Tiêu đề & Thanh tìm kiếm */}
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">
           Bán hàng (POS)
@@ -50,7 +53,6 @@ export default function ProductList({
         </div>
       </div>
 
-      {/* Bộ lọc Category Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-3 pt-1 scrollbar-none">
         {categories.map((cat) => {
           const isSelected = selectedCategory === cat;
@@ -70,9 +72,16 @@ export default function ProductList({
         })}
       </div>
 
-      {/* Lưới sản phẩm */}
       <div className="flex-1 overflow-y-auto pr-1 pt-1 pb-4">
-        {products.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center h-64 text-muted text-sm">
+            <p>Đang tải danh sách món...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center text-sm text-red-600">
+            <p>{error}</p>
+          </div>
+        ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted text-sm">
             <p>Không tìm thấy sản phẩm nào phù hợp</p>
           </div>
@@ -89,7 +98,6 @@ export default function ProductList({
         )}
       </div>
 
-      {/* Thanh phím tắt Footer */}
       <div className="border-t border-border/60 pt-3 flex items-center gap-4 text-xs text-muted">
         <span className="font-medium text-foreground/80">Phím tắt:</span>
         <div className="flex items-center gap-1.5">

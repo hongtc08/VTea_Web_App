@@ -50,7 +50,7 @@ class ToppingServiceImplTest {
 
     @Test
     void getAllToppings_Success() {
-        when(toppingRepository.findAll()).thenReturn(List.of(sampleTopping));
+        when(toppingRepository.findByIsAvailableTrue()).thenReturn(List.of(sampleTopping));
 
         List<ToppingResponse> result = toppingService.getAllToppings();
 
@@ -61,7 +61,7 @@ class ToppingServiceImplTest {
         assertEquals(new BigDecimal("5000"), res.getPrice());
         assertEquals("/images/toppings/tran-chau.jpg", res.getImageUrl());
         assertTrue(res.getIsAvailable());
-        verify(toppingRepository, times(1)).findAll();
+        verify(toppingRepository, times(1)).findByIsAvailableTrue();
     }
 
     @Test
@@ -77,12 +77,14 @@ class ToppingServiceImplTest {
     }
 
     @Test
-    void getToppingById_NotFound_ThrowsException() {
+    void getToppingById_NotFoundOrUnavailable_ThrowsException() {
         when(toppingRepository.findById(99)).thenReturn(Optional.empty());
-
         RuntimeException ex = assertThrows(RuntimeException.class, () -> toppingService.getToppingById(99));
         assertTrue(ex.getMessage().contains("Không tìm thấy topping với ID: 99"));
-        verify(toppingRepository, times(1)).findById(99);
+
+        sampleTopping.setIsAvailable(false);
+        when(toppingRepository.findById(1)).thenReturn(Optional.of(sampleTopping));
+        assertThrows(RuntimeException.class, () -> toppingService.getToppingById(1));
     }
 
     @Test
@@ -113,6 +115,24 @@ class ToppingServiceImplTest {
     }
 
     @Test
+    void createTopping_ThrowsException_WhenNameBlankOrNull() {
+        createRequest.setName("  ");
+        assertThrows(RuntimeException.class, () -> toppingService.createTopping(createRequest));
+
+        createRequest.setName(null);
+        assertThrows(RuntimeException.class, () -> toppingService.createTopping(createRequest));
+    }
+
+    @Test
+    void createTopping_ThrowsException_WhenPriceInvalid() {
+        createRequest.setPrice(BigDecimal.ZERO);
+        assertThrows(RuntimeException.class, () -> toppingService.createTopping(createRequest));
+
+        createRequest.setPrice(null);
+        assertThrows(RuntimeException.class, () -> toppingService.createTopping(createRequest));
+    }
+
+    @Test
     void createTopping_ThrowsException_WhenNameExists() {
         when(toppingRepository.existsByName("Trân châu đen")).thenReturn(true);
 
@@ -130,6 +150,7 @@ class ToppingServiceImplTest {
         updateRequest.setIsAvailable(false);
 
         when(toppingRepository.findById(1)).thenReturn(Optional.of(sampleTopping));
+        when(toppingRepository.existsByName("Trân châu trắng")).thenReturn(false);
         when(toppingRepository.save(any(Topping.class))).thenAnswer(i -> i.getArguments()[0]);
 
         ToppingResponse res = toppingService.updateTopping(1, updateRequest);
@@ -139,6 +160,42 @@ class ToppingServiceImplTest {
         assertEquals("/images/toppings/tc-trang.jpg", res.getImageUrl());
         assertFalse(res.getIsAvailable());
         verify(toppingRepository, times(1)).save(sampleTopping);
+    }
+
+    @Test
+    void updateTopping_SameName_DoesNotCheckDuplicate() {
+        UpdateToppingRequest updateRequest = new UpdateToppingRequest();
+        updateRequest.setName("trân châu đen");
+
+        when(toppingRepository.findById(1)).thenReturn(Optional.of(sampleTopping));
+        when(toppingRepository.save(any(Topping.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        ToppingResponse res = toppingService.updateTopping(1, updateRequest);
+
+        assertEquals("trân châu đen", res.getName());
+        verify(toppingRepository, never()).existsByName(anyString());
+    }
+
+    @Test
+    void updateTopping_ThrowsException_WhenNewNameExists() {
+        UpdateToppingRequest updateRequest = new UpdateToppingRequest();
+        updateRequest.setName("Trân châu trắng");
+
+        when(toppingRepository.findById(1)).thenReturn(Optional.of(sampleTopping));
+        when(toppingRepository.existsByName("Trân châu trắng")).thenReturn(true);
+
+        assertThrows(RuntimeException.class, () -> toppingService.updateTopping(1, updateRequest));
+    }
+
+    @Test
+    void updateTopping_ThrowsException_WhenPriceInvalid() {
+        UpdateToppingRequest updateRequest = new UpdateToppingRequest();
+        updateRequest.setName("   ");
+        updateRequest.setPrice(new BigDecimal("-1000"));
+
+        when(toppingRepository.findById(1)).thenReturn(Optional.of(sampleTopping));
+
+        assertThrows(RuntimeException.class, () -> toppingService.updateTopping(1, updateRequest));
     }
 
     @Test

@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 
 /**
- * Ánh xạ với bảng 'product' (món nước). Bản tối giản phục vụ tạo hóa đơn.
+ * Ánh xạ với bảng 'product' (món nước) trong cơ sở dữ liệu.
  */
 @Entity
 @Table(name = "product")
@@ -14,6 +14,10 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "product_id")
     private Integer productId;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "category_id")
+    private Category category;
 
     @Column(nullable = false)
     private String name;
@@ -31,6 +35,9 @@ public class Product {
 
     public Integer getProductId() { return productId; }
     public void setProductId(Integer productId) { this.productId = productId; }
+
+    public Category getCategory() { return category; }
+    public void setCategory(Category category) { this.category = category; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

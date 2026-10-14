@@ -86,8 +86,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       };
       return [...prevItems, newItem];
     });
-
-    toast.success(`Đã thêm ${product.name} vào đơn hàng`);
   };
 
   // Bổ sung thêm topping vào 1 item đã có sẵn trong giỏ từ modal
@@ -115,8 +113,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return { ...item, toppings: mergedToppings };
       })
     );
-
-    toast.success('Đã cập nhật topping cho món');
   };
 
   // Cập nhật số lượng của một dòng trong giỏ
@@ -137,13 +133,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Xóa 1 dòng món khỏi giỏ
   const removeItem = (cartItemId: string) => {
     setCartItems((prev) => prev.filter((item) => item.id !== cartItemId));
-    toast.info('Đã xóa món khỏi đơn hàng');
   };
 
   // Xóa tất cả giỏ hàng
   const clearCart = () => {
     setCartItems([]);
-    toast.info('Đã xóa toàn bộ đơn hàng');
   };
 
   // Tăng/giảm số lượng 1 topping trên dòng giỏ hàng
