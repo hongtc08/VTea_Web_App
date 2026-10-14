@@ -11,6 +11,17 @@ services:
       - .env
     volumes:
       - ./backend:/app
+      # target riêng cho container, không dùng chung với target trên Windows (tránh class cũ / khóa file)
+      - /app/target
+      # Giữ thư viện Maven giữa các lần chạy, không phải tải lại
+      - maven_repo:/root/.m2
+    # Báo "healthy" khi Spring Boot đã mở cổng 8080 (tức là đã start xong)
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
 
   frontend:
     build:
@@ -20,10 +31,13 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      # Chờ backend start xong mới chạy frontend
+      backend:
+        condition: service_healthy
     volumes:
       - ./frontend:/app
       - /app/node_modules
 
 volumes:
   mysql_data:
+  maven_repo:
