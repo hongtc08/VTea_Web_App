@@ -3,11 +3,9 @@
 import React, { useState } from "react";
 import { X, Pencil, Trash2, Plus, Folder } from "lucide-react";
 
-export interface Category {
-  id: number;
-  name: string;
-  status: string;
-}
+import { Category } from "@/types/menu";
+
+export type { Category };
 
 interface CategoryManagerModalProps {
   isOpen: boolean;
@@ -169,3 +167,5 @@ export default function CategoryManagerModal({
     </div>
   );
 }
+
+export { CategoryManagerModal };
