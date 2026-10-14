@@ -31,6 +31,21 @@ export interface ToppingResponseDto {
   isAvailable?: boolean;
 }
 
+export interface PosProductResponseDto {
+  productId: number;
+  name: string;
+  price: number;
+  imageUrl?: string;
+  categoryId?: number;
+  categoryName?: string;
+}
+
+export interface CategoryResponseDto {
+  categoryId: number;
+  name: string;
+  isAvailable?: boolean;
+}
+
 export interface CreateToppingRequestDto {
   name: string;
   price: number;

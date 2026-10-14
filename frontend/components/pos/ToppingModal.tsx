@@ -3,12 +3,14 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { X, Plus, Minus, Check } from 'lucide-react';
-import { Product, SelectedTopping } from '@/types/pos';
-import { AVAILABLE_TOPPINGS } from '@/data/mockProducts';
+import { Product, SelectedTopping, Topping } from '@/types/pos';
 
 interface ToppingModalProps {
   isOpen: boolean;
   product: Product | null;
+  toppings: Topping[];
+  isLoading?: boolean;
+  error?: string | null;
   onClose: () => void;
   onConfirm: (product: Product, selectedToppings: SelectedTopping[]) => void;
 }
@@ -16,6 +18,9 @@ interface ToppingModalProps {
 export default function ToppingModal({
   isOpen,
   product,
+  toppings,
+  isLoading = false,
+  error = null,
   onClose,
   onConfirm,
 }: ToppingModalProps) {
@@ -54,7 +59,7 @@ export default function ToppingModal({
   };
 
   // Tính tiền topping phụ
-  const toppingsExtraPrice = AVAILABLE_TOPPINGS.reduce((sum, top) => {
+  const toppingsExtraPrice = toppings.reduce((sum, top) => {
     const qty = selectedToppings[top.id] || 0;
     return sum + top.price * qty;
   }, 0);
@@ -69,7 +74,7 @@ export default function ToppingModal({
 
   // Chỉ đóng modal và gửi danh sách topping khi bấm nút "Thêm vào giỏ hàng"
   const handleConfirm = () => {
-    const toppingsList: SelectedTopping[] = AVAILABLE_TOPPINGS.filter(
+    const toppingsList: SelectedTopping[] = toppings.filter(
       (top) => (selectedToppings[top.id] || 0) > 0
     ).map((top) => ({
       id: top.id,
@@ -82,7 +87,7 @@ export default function ToppingModal({
     handleClose();
   };
 
-  const filteredToppings = AVAILABLE_TOPPINGS.filter((t) =>
+  const filteredToppings = toppings.filter((t) =>
     t.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
   );
 
@@ -136,7 +141,20 @@ export default function ToppingModal({
 
         {/* Lưới danh sách Topping: Click chọn thoải mái nhiều loại không bị đóng */}
         <div className="flex-1 overflow-y-auto p-6 pt-3">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+          {isLoading ? (
+            <div className="flex h-48 items-center justify-center text-sm text-muted">
+              Đang tải topping...
+            </div>
+          ) : error ? (
+            <div className="flex h-48 items-center justify-center text-center text-sm text-red-600">
+              {error}
+            </div>
+          ) : filteredToppings.length === 0 ? (
+            <div className="flex h-48 items-center justify-center text-sm text-muted">
+              Không có topping phù hợp
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
             {filteredToppings.map((topping) => {
               const qty = selectedToppings[topping.id] || 0;
               const isSelected = qty > 0;
@@ -216,7 +234,8 @@ export default function ToppingModal({
                 </div>
               );
             })}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Footer Modal: Tổng cộng & Nút xác nhận */}
