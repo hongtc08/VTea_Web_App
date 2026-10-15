@@ -25,7 +25,6 @@ interface BillPreviewModalProps {
   createdAt?: Date | string | null;
   invoiceCode?: string;
   staffName?: string;
-  customerName?: string;
   billData?: BillDetailData | null;
   onClose: () => void;
 }
@@ -52,7 +51,6 @@ export default function BillPreviewModal({
   createdAt: propsCreatedAt,
   invoiceCode: propsInvoiceCode,
   staffName: propsStaffName,
-  customerName: propsCustomerName,
   billData,
   onClose,
 }: BillPreviewModalProps) {
@@ -66,7 +64,6 @@ export default function BillPreviewModal({
   const createdAt = billData ? billData.createdAt : (propsCreatedAt ?? null);
   const invoiceCode = billData?.invoiceCode ?? propsInvoiceCode ?? 'DEMO';
   const staffName = billData?.staffName ?? propsStaffName ?? 'Demo POS';
-  const customerName = billData?.customerName ?? propsCustomerName ?? 'Khách vãng lai';
 
   let displayDate = '';
   if (createdAt) {
@@ -117,8 +114,6 @@ HÓA ĐƠN THANH TOÁN
               <span>Mã HĐ: {invoiceCode}</span>
               <span className="text-right">{displayDate}</span>
               <span>Nhân viên: {staffName}</span>
-              <span />
-              <span>Khách hàng: {customerName}</span>
               <span />
               <span>Thanh toán: {paymentMethod}</span>
               <span />
