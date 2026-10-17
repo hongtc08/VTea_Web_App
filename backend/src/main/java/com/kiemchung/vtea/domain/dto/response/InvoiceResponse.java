@@ -8,7 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Dữ liệu hóa đơn trả về cho client sau khi tạo thành công.
+ * DTO trả về thông tin chi tiết hóa đơn sau khi Backend đã tính toán,
+ * đối chiếu giá tiền từ Database và lưu đơn hàng thành công.
  */
 public class InvoiceResponse {
 
@@ -16,6 +17,8 @@ public class InvoiceResponse {
     private Integer userId;
     private String staffName;
     private PaymentMethod paymentMethod;
+    private BigDecimal subtotal;
+    private BigDecimal vat;
     private BigDecimal totalAmount;
     private LocalDateTime createdAt;
     private List<Item> items = new ArrayList<>();
@@ -31,6 +34,12 @@ public class InvoiceResponse {
 
     public PaymentMethod getPaymentMethod() { return paymentMethod; }
     public void setPaymentMethod(PaymentMethod paymentMethod) { this.paymentMethod = paymentMethod; }
+
+    public BigDecimal getSubtotal() { return subtotal; }
+    public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
+
+    public BigDecimal getVat() { return vat; }
+    public void setVat(BigDecimal vat) { this.vat = vat; }
 
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }

@@ -8,7 +8,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Controller xử lý các API hóa đơn.
+ * Controller tiếp nhận các API liên quan đến hóa đơn và thanh toán.
  */
 @RestController
 @RequestMapping("/api/invoices")
@@ -21,11 +21,15 @@ public class InvoiceController {
     }
 
     /**
-     * API tạo hóa đơn (STAFF và ADMIN đều dùng được).
-     * POST /api/invoices — nhân viên tạo hóa đơn lấy từ JWT, không nhận từ body.
+     * API tạo hóa đơn và thanh toán: POST /api/invoices (dành cho STAFF và ADMIN).
+     * Nhân viên thực hiện lấy trực tiếp từ JWT Authentication, giá tiền được tính lại và chéo check dưới BE.
      */
     @PostMapping
     public ResponseEntity<?> createInvoice(@RequestBody CreateInvoiceRequest request, Authentication authentication) {
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Vui lòng đăng nhập để thực hiện thanh toán!");
+        }
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(invoiceService.createInvoice(authentication.getName(), request));
@@ -34,3 +38,4 @@ public class InvoiceController {
         }
     }
 }
+
