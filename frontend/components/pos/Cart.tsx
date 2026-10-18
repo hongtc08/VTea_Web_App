@@ -114,8 +114,6 @@ export default function Cart({
             >
               <option value="Tiền mặt">Tiền mặt</option>
               <option value="Chuyển khoản (QR Code)">Chuyển khoản (QR Code)</option>
-              <option value="Thẻ ngân hàng">Thẻ ngân hàng</option>
-              <option value="Ví điện tử">Ví điện tử</option>
             </select>
             <ChevronDown
               size={15}

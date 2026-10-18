@@ -6,11 +6,14 @@ import com.kiemchung.vtea.domain.dto.response.InvoiceResponse;
 import java.util.List;
 
 /**
- * Nghiệp vụ quản lý hóa đơn.
+ * Định nghĩa interface nghiệp vụ xử lý hóa đơn và bảo mật thanh toán.
  */
 public interface InvoiceService {
 
-    /** Tạo hóa đơn mới cho nhân viên đang đăng nhập. */
+    /**
+     * Tạo hóa đơn mới: tự động truy vấn giá gốc từ DB, tính toán lại tổng tiền (gồm VAT 10%)
+     * và đối chiếu (chéo check) với dữ liệu giá từ Frontend gửi lên.
+     */
     InvoiceResponse createInvoice(String username, CreateInvoiceRequest request);
 
     /**
@@ -27,3 +30,4 @@ public interface InvoiceService {
      */
     InvoiceResponse getInvoiceById(Integer invoiceId, String username);
 }
+

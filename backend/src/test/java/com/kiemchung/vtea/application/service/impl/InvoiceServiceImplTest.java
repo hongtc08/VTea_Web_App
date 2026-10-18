@@ -18,6 +18,7 @@ import org.springframework.security.access.AccessDeniedException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,7 +27,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit test cho nghiệp vụ tạo hóa đơn và xem lịch sử hóa đơn.
+ * Mục đích file: Unit test cho nghiệp vụ tạo hóa đơn, bảo mật API thanh toán
+ * (tính toán lại giá từ DB, cộng thuế VAT 10%, chéo check giá tiền từ FE) và tra cứu lịch sử hóa đơn.
  */
 @ExtendWith(MockitoExtension.class)
 class InvoiceServiceImplTest {
@@ -55,20 +57,29 @@ class InvoiceServiceImplTest {
         staff.setUsername("staff1");
         staff.setFullName("Nguyen Van A");
         staff.setRole(Role.STAFF);
+        staff.setStatus(Status.ACTIVE);
 
         otherStaff = new User();
         otherStaff.setUserId(2);
         otherStaff.setUsername("staff2");
         otherStaff.setFullName("Tran Thi B");
         otherStaff.setRole(Role.STAFF);
+        otherStaff.setStatus(Status.ACTIVE);
 
         admin = new User();
         admin.setUserId(99);
         admin.setUsername("admin");
         admin.setFullName("Quan Tri Vien");
         admin.setRole(Role.ADMIN);
+        admin.setStatus(Status.ACTIVE);
+
+        Category activeCategory = new Category();
+        activeCategory.setCategoryId(1);
+        activeCategory.setName("Trà sữa");
+        activeCategory.setIsAvailable(true);
 
         milkTea = product(10, "Trà sữa", "30000", true);
+        milkTea.setCategory(activeCategory);
         lemonTea = product(11, "Trà chanh", "25000", null); // null = vẫn bán
         pearl = topping(20, "Trân châu", "5000", true);
         pudding = topping(21, "Pudding", "3000", true);
@@ -87,7 +98,7 @@ class InvoiceServiceImplTest {
         Product p = new Product();
         p.setProductId(id);
         p.setName(name);
-        p.setPrice(new BigDecimal(price));
+        p.setPrice(price != null ? new BigDecimal(price) : null);
         p.setIsAvailable(available);
         return p;
     }
@@ -96,7 +107,7 @@ class InvoiceServiceImplTest {
         Topping t = new Topping();
         t.setToppingId(id);
         t.setName(name);
-        t.setPrice(new BigDecimal(price));
+        t.setPrice(price != null ? new BigDecimal(price) : null);
         t.setIsAvailable(available);
         return t;
     }
@@ -124,8 +135,12 @@ class InvoiceServiceImplTest {
     }
 
     private void assertBadRequest(CreateInvoiceRequest req, String expectedMessage) {
+        assertBadRequest("staff1", req, expectedMessage);
+    }
+
+    private void assertBadRequest(String username, CreateInvoiceRequest req, String expectedMessage) {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> invoiceService.createInvoice("staff1", req));
+                () -> invoiceService.createInvoice(username, req));
         assertTrue(ex.getMessage().contains(expectedMessage), "Thông báo thực tế: " + ex.getMessage());
         verify(invoiceRepository, never()).save(any());
     }
@@ -133,11 +148,11 @@ class InvoiceServiceImplTest {
     // ===================== Create Invoice Tests =====================
 
     @Test
-    void createInvoice_Success_CalculatesTotalCorrectly() {
+    void createInvoice_Success_CalculatesSubtotalVatAndTotalCorrectly() {
         // 2 ly trà sữa, mỗi ly: 1 trân châu (quantity null -> mặc định 1) + 2 pudding
-        // => (30000 + 5000 + 3000*2) * 2 = 82000
+        // => line1 = (30000 + 5000 + 3000*2) * 2 = 82000
         CreateInvoiceRequest.Item item1 = item(10, 2, toppingItem(20, null), toppingItem(21, 2));
-        // 1 ly trà chanh không topping (toppings = null) => 25000
+        // 1 ly trà chanh không topping (toppings = null) => line2 = 25000
         CreateInvoiceRequest.Item item2 = item(11, 1);
         item2.setToppings(null);
         CreateInvoiceRequest req = request(item1, item2);
@@ -156,12 +171,15 @@ class InvoiceServiceImplTest {
 
         InvoiceResponse res = invoiceService.createInvoice("staff1", req);
 
+        // Tạm tính = 82000 + 25000 = 107000; VAT 10% = 10700; Tổng cộng = 117700
         assertEquals(100, res.getInvoiceId());
         assertEquals(1, res.getUserId());
         assertEquals("Nguyen Van A", res.getStaffName());
         assertEquals(PaymentMethod.TRANSFER, res.getPaymentMethod());
         assertNotNull(res.getCreatedAt());
-        assertEquals(0, new BigDecimal("107000").compareTo(res.getTotalAmount()));
+        assertEquals(0, new BigDecimal("107000").compareTo(res.getSubtotal()));
+        assertEquals(0, new BigDecimal("10700").compareTo(res.getVat()));
+        assertEquals(0, new BigDecimal("117700").compareTo(res.getTotalAmount()));
 
         assertEquals(2, res.getItems().size());
         InvoiceResponse.Item first = res.getItems().get(0);
@@ -174,6 +192,120 @@ class InvoiceServiceImplTest {
         assertTrue(res.getItems().get(1).getToppings().isEmpty());
 
         verify(invoiceRepository).save(any(Invoice.class));
+    }
+
+    @Test
+    void createInvoice_WithMatchingClientPrices_CrossChecksAndSucceeds() {
+        // 1 ly trà sữa (30000) + 2 trân châu (5000 * 2 = 10000) => lineTotal = 40000
+        // subtotal = 40000, vat = 4000, totalAmount = 44000
+        CreateInvoiceRequest.ToppingItem top = toppingItem(20, 2);
+        top.setUnitPrice(new BigDecimal("5000"));
+
+        CreateInvoiceRequest.Item item1 = item(10, 1, top);
+        item1.setUnitPrice(new BigDecimal("30000"));
+        item1.setLineTotal(new BigDecimal("40000"));
+
+        CreateInvoiceRequest req = request(item1);
+        req.setSubtotal(new BigDecimal("40000"));
+        req.setVat(new BigDecimal("4000"));
+        req.setTotalAmount(new BigDecimal("44000"));
+
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+        when(toppingRepository.findById(20)).thenReturn(Optional.of(pearl));
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> {
+            Invoice saved = inv.getArgument(0);
+            saved.setInvoiceId(101);
+            return saved;
+        });
+
+        InvoiceResponse res = invoiceService.createInvoice("staff1", req);
+
+        assertEquals(101, res.getInvoiceId());
+        assertEquals(0, new BigDecimal("40000").compareTo(res.getSubtotal()));
+        assertEquals(0, new BigDecimal("4000").compareTo(res.getVat()));
+        assertEquals(0, new BigDecimal("44000").compareTo(res.getTotalAmount()));
+        verify(invoiceRepository).save(any(Invoice.class));
+    }
+
+    @Test
+    void createInvoice_TamperedProductUnitPrice_Throws() {
+        CreateInvoiceRequest.Item item1 = item(10, 1);
+        item1.setUnitPrice(new BigDecimal("1000")); // Giá thực trong DB là 30000
+
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+
+        assertBadRequest(request(item1), "Đơn giá món 'Trà sữa' không khớp");
+    }
+
+    @Test
+    void createInvoice_NegativeClientPrice_Throws() {
+        CreateInvoiceRequest.Item item1 = item(10, 1);
+        item1.setUnitPrice(new BigDecimal("-5000"));
+
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+
+        assertBadRequest(request(item1), "không được âm");
+    }
+
+    @Test
+    void createInvoice_TamperedToppingUnitPrice_Throws() {
+        CreateInvoiceRequest.ToppingItem top = toppingItem(20, 1);
+        top.setUnitPrice(new BigDecimal("1000")); // Giá thực trong DB là 5000
+        CreateInvoiceRequest.Item item1 = item(10, 1, top);
+
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+        when(toppingRepository.findById(20)).thenReturn(Optional.of(pearl));
+
+        assertBadRequest(request(item1), "Đơn giá topping 'Trân châu' không khớp");
+    }
+
+    @Test
+    void createInvoice_TamperedLineTotal_Throws() {
+        CreateInvoiceRequest.Item item1 = item(10, 2); // 30000 * 2 = 60000
+        item1.setLineTotal(new BigDecimal("30000"));
+
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+
+        assertBadRequest(request(item1), "Thành tiền của món 'Trà sữa' không khớp");
+    }
+
+    @Test
+    void createInvoice_TamperedSubtotal_Throws() {
+        CreateInvoiceRequest req = request(item(10, 1)); // subtotal chuẩn = 30000
+        req.setSubtotal(new BigDecimal("20000"));
+
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+
+        assertBadRequest(req, "Tạm tính (subtotal) từ client không khớp");
+    }
+
+    @Test
+    void createInvoice_TamperedVat_Throws() {
+        CreateInvoiceRequest req = request(item(10, 1)); // vat chuẩn = 3000
+        req.setSubtotal(new BigDecimal("30000"));
+        req.setVat(new BigDecimal("0"));
+
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+
+        assertBadRequest(req, "Tiền thuế VAT từ client không khớp");
+    }
+
+    @Test
+    void createInvoice_TamperedTotalAmount_Throws() {
+        CreateInvoiceRequest req = request(item(10, 1)); // total chuẩn = 33000
+        req.setTotalAmount(new BigDecimal("30000"));
+
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+
+        assertBadRequest(req, "Tổng tiền thanh toán từ client không khớp");
     }
 
     @Test
@@ -201,9 +333,31 @@ class InvoiceServiceImplTest {
     }
 
     @Test
+    void createInvoice_NullOrBlankUsername_Throws() {
+        assertBadRequest(null, request(item(10, 1)), "Không xác định được nhân viên");
+        assertBadRequest("   ", request(item(10, 1)), "Không xác định được nhân viên");
+    }
+
+    @Test
     void createInvoice_UserNotFound_Throws() {
         when(userRepository.findByUsername("staff1")).thenReturn(Optional.empty());
         assertBadRequest(request(item(10, 1)), "Không tìm thấy nhân viên");
+    }
+
+    @Test
+    void createInvoice_DeletedStaff_Throws() {
+        staff.setStatus(Status.DELETED);
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        assertBadRequest(request(item(10, 1)), "ngừng hoạt động");
+    }
+
+    @Test
+    void createInvoice_NullItemInList_Throws() {
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        CreateInvoiceRequest req = new CreateInvoiceRequest();
+        req.setPaymentMethod(PaymentMethod.CASH);
+        req.setItems(Collections.singletonList(null));
+        assertBadRequest(req, "Thiếu productId");
     }
 
     @Test
@@ -240,6 +394,40 @@ class InvoiceServiceImplTest {
     }
 
     @Test
+    void createInvoice_ProductCategoryUnavailable_Throws() {
+        Category disabledCategory = new Category();
+        disabledCategory.setCategoryId(2);
+        disabledCategory.setName("Món theo mùa");
+        disabledCategory.setIsAvailable(false);
+        milkTea.setCategory(disabledCategory);
+
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+        assertBadRequest(request(item(10, 1)), "ngừng bán");
+    }
+
+    @Test
+    void createInvoice_InvalidProductDbPrice_Throws() {
+        milkTea.setPrice(null);
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+        assertBadRequest(request(item(10, 1)), "không hợp lệ");
+
+        milkTea.setPrice(new BigDecimal("-1000"));
+        assertBadRequest(request(item(10, 1)), "không hợp lệ");
+    }
+
+    @Test
+    void createInvoice_NullToppingElement_Throws() {
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+
+        CreateInvoiceRequest.Item item1 = item(10, 1);
+        item1.setToppings(Collections.singletonList(null));
+        assertBadRequest(request(item1), "Thiếu toppingId");
+    }
+
+    @Test
     void createInvoice_MissingToppingId_Throws() {
         when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
         when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
@@ -268,6 +456,18 @@ class InvoiceServiceImplTest {
         when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
         when(toppingRepository.findById(20)).thenReturn(Optional.of(pearl));
         assertBadRequest(request(item(10, 1, toppingItem(20, 1))), "ngừng bán");
+    }
+
+    @Test
+    void createInvoice_InvalidToppingDbPrice_Throws() {
+        pearl.setPrice(null);
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
+        when(toppingRepository.findById(20)).thenReturn(Optional.of(pearl));
+        assertBadRequest(request(item(10, 1, toppingItem(20, 1))), "không hợp lệ");
+
+        pearl.setPrice(new BigDecimal("-500"));
+        assertBadRequest(request(item(10, 1, toppingItem(20, 1))), "không hợp lệ");
     }
 
     @Test
@@ -349,3 +549,4 @@ class InvoiceServiceImplTest {
         assertTrue(ex.getMessage().contains("Không tìm thấy hóa đơn với ID: 999"));
     }
 }
+

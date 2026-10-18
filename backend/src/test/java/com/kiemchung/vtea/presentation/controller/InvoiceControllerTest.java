@@ -13,11 +13,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
+/**
+ * Mục đích file: Unit test cho InvoiceController nhằm kiểm tra xác thực JWT
+ * và phản hồi HTTP khi tạo hóa đơn, lấy danh sách lịch sử và xem chi tiết hóa đơn.
+ */
 @ExtendWith(MockitoExtension.class)
 class InvoiceControllerTest {
 
@@ -36,33 +41,55 @@ class InvoiceControllerTest {
     void setUp() {
         sampleResponse = new InvoiceResponse();
         sampleResponse.setInvoiceId(100);
+        sampleResponse.setTotalAmount(new BigDecimal("33000"));
+    }
+
+    @Test
+    void createInvoice_Success_Returns201() {
+        CreateInvoiceRequest request = new CreateInvoiceRequest();
         when(authentication.getName()).thenReturn("staff1");
+        when(invoiceService.createInvoice("staff1", request)).thenReturn(sampleResponse);
+
+        ResponseEntity<?> response = invoiceController.createInvoice(request, authentication);
+
+        assertEquals(201, response.getStatusCode().value());
+        assertEquals(sampleResponse, response.getBody());
     }
 
     @Test
-    void testCreateInvoice_Success() {
-        CreateInvoiceRequest req = new CreateInvoiceRequest();
-        when(invoiceService.createInvoice("staff1", req)).thenReturn(sampleResponse);
+    void createInvoice_Unauthenticated_Returns401() {
+        CreateInvoiceRequest request = new CreateInvoiceRequest();
 
-        ResponseEntity<?> res = invoiceController.createInvoice(req, authentication);
+        ResponseEntity<?> nullAuthResponse = invoiceController.createInvoice(request, null);
+        assertEquals(401, nullAuthResponse.getStatusCode().value());
 
-        assertEquals(201, res.getStatusCode().value());
-        assertEquals(sampleResponse, res.getBody());
+        when(authentication.getName()).thenReturn(null);
+        ResponseEntity<?> nullNameResponse = invoiceController.createInvoice(request, authentication);
+        assertEquals(401, nullNameResponse.getStatusCode().value());
+
+        when(authentication.getName()).thenReturn("   ");
+        ResponseEntity<?> blankUserResponse = invoiceController.createInvoice(request, authentication);
+        assertEquals(401, blankUserResponse.getStatusCode().value());
+
+        verify(invoiceService, never()).createInvoice(any(), any());
     }
 
     @Test
-    void testCreateInvoice_BadRequest() {
-        CreateInvoiceRequest req = new CreateInvoiceRequest();
-        when(invoiceService.createInvoice("staff1", req)).thenThrow(new IllegalArgumentException("Invalid"));
+    void createInvoice_PriceMismatchOrValidationFailed_Returns400() {
+        CreateInvoiceRequest request = new CreateInvoiceRequest();
+        when(authentication.getName()).thenReturn("staff1");
+        when(invoiceService.createInvoice("staff1", request))
+                .thenThrow(new IllegalArgumentException("Tổng tiền thanh toán từ client không khớp với giá tính toán tại hệ thống!"));
 
-        ResponseEntity<?> res = invoiceController.createInvoice(req, authentication);
+        ResponseEntity<?> response = invoiceController.createInvoice(request, authentication);
 
-        assertEquals(400, res.getStatusCode().value());
-        assertEquals("Invalid", res.getBody());
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals("Tổng tiền thanh toán từ client không khớp với giá tính toán tại hệ thống!", response.getBody());
     }
 
     @Test
     void testGetInvoices_Success() {
+        when(authentication.getName()).thenReturn("staff1");
         when(invoiceService.getInvoices("staff1")).thenReturn(List.of(sampleResponse));
 
         ResponseEntity<?> res = invoiceController.getInvoices(authentication);
@@ -73,6 +100,7 @@ class InvoiceControllerTest {
 
     @Test
     void testGetInvoices_BadRequest() {
+        when(authentication.getName()).thenReturn("staff1");
         when(invoiceService.getInvoices("staff1")).thenThrow(new IllegalArgumentException("User not found"));
 
         ResponseEntity<?> res = invoiceController.getInvoices(authentication);
@@ -83,6 +111,7 @@ class InvoiceControllerTest {
 
     @Test
     void testGetInvoiceById_Success() {
+        when(authentication.getName()).thenReturn("staff1");
         when(invoiceService.getInvoiceById(100, "staff1")).thenReturn(sampleResponse);
 
         ResponseEntity<?> res = invoiceController.getInvoiceById(100, authentication);
@@ -93,6 +122,7 @@ class InvoiceControllerTest {
 
     @Test
     void testGetInvoiceById_Forbidden() {
+        when(authentication.getName()).thenReturn("staff1");
         when(invoiceService.getInvoiceById(100, "staff1")).thenThrow(new AccessDeniedException("Forbidden"));
 
         ResponseEntity<?> res = invoiceController.getInvoiceById(100, authentication);
@@ -103,6 +133,7 @@ class InvoiceControllerTest {
 
     @Test
     void testGetInvoiceById_NotFound() {
+        when(authentication.getName()).thenReturn("staff1");
         when(invoiceService.getInvoiceById(999, "staff1")).thenThrow(new IllegalArgumentException("Not found"));
 
         ResponseEntity<?> res = invoiceController.getInvoiceById(999, authentication);
