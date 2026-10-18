@@ -8,6 +8,7 @@ import com.kiemchung.vtea.domain.repository.InvoiceRepository;
 import com.kiemchung.vtea.domain.repository.ProductRepository;
 import com.kiemchung.vtea.domain.repository.ToppingRepository;
 import com.kiemchung.vtea.domain.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +17,10 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
- * Thực thi nghiệp vụ hóa đơn: kiểm tra dữ liệu, tra giá từ DB, tính tổng tiền và lưu.
+ * Thực thi nghiệp vụ hóa đơn: tạo hóa đơn, xem danh sách và chi tiết lịch sử hóa đơn theo phân quyền.
  */
 @Service
 public class InvoiceServiceImpl implements InvoiceService {
@@ -46,8 +48,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     public InvoiceResponse createInvoice(String username, CreateInvoiceRequest request) {
         validateRequest(request);
 
-        User staff = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên: " + username));
+        User staff = findUserByUsername(username);
 
         Invoice invoice = new Invoice();
         invoice.setUser(staff);
@@ -63,6 +64,51 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setTotalAmount(total);
 
         return mapToResponse(invoiceRepository.save(invoice));
+    }
+
+    /**
+     * Lấy danh sách lịch sử hóa đơn theo phân quyền:
+     * - ADMIN: Xem toàn bộ hóa đơn trong hệ thống.
+     * - STAFF: Chỉ xem các hóa đơn do chính mình tạo.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<InvoiceResponse> getInvoices(String username) {
+        User currentUser = findUserByUsername(username);
+
+        List<Invoice> invoices = (currentUser.getRole() == Role.ADMIN)
+                ? invoiceRepository.findAllByOrderByCreatedAtDesc()
+                : invoiceRepository.findByUser_UserIdOrderByCreatedAtDesc(currentUser.getUserId());
+
+        return invoices.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Xem chi tiết 1 hóa đơn theo ID:
+     * - ADMIN: Xem được mọi hóa đơn.
+     * - STAFF: Chỉ xem được hóa đơn do chính mình tạo (nếu xem của người khác sẽ ném AccessDeniedException).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public InvoiceResponse getInvoiceById(Integer invoiceId, String username) {
+        User currentUser = findUserByUsername(username);
+
+        Invoice invoice = invoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hóa đơn với ID: " + invoiceId));
+
+        if (currentUser.getRole() != Role.ADMIN
+                && !currentUser.getUserId().equals(invoice.getUser().getUserId())) {
+            throw new AccessDeniedException("Bạn không có quyền xem hóa đơn của nhân viên khác!");
+        }
+
+        return mapToResponse(invoice);
+    }
+
+    private User findUserByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên: " + username));
     }
 
     /** Kiểm tra payload tổng quát. */
