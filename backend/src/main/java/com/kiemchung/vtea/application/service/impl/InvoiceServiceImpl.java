@@ -8,6 +8,7 @@ import com.kiemchung.vtea.domain.repository.InvoiceRepository;
 import com.kiemchung.vtea.domain.repository.ProductRepository;
 import com.kiemchung.vtea.domain.repository.ToppingRepository;
 import com.kiemchung.vtea.domain.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,9 +18,10 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
- * Thực thi nghiệp vụ tạo hóa đơn và bảo mật API thanh toán.
+ * Thực thi nghiệp vụ tạo hóa đơn, bảo mật API thanh toán và tra cứu lịch sử hóa đơn theo phân quyền.
  * Toàn bộ đơn giá món, topping, tạm tính, VAT (10%) và tổng tiền luôn được tính toán lại
  * từ Database dưới Backend và đối chiếu (chéo check) với dữ liệu giá từ Frontend gửi lên.
  */
@@ -87,7 +89,47 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setTotalAmount(totalAmount);
         Invoice savedInvoice = invoiceRepository.save(invoice);
 
-        return mapToResponse(savedInvoice, subtotal, vat);
+        return mapToResponse(savedInvoice);
+    }
+
+    /**
+     * Lấy danh sách lịch sử hóa đơn theo phân quyền:
+     * - ADMIN: Xem toàn bộ hóa đơn trong hệ thống.
+     * - STAFF: Chỉ xem các hóa đơn do chính mình tạo.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<InvoiceResponse> getInvoices(String username) {
+        User currentUser = resolveAuthenticatedStaff(username);
+
+        List<Invoice> invoices = (currentUser.getRole() == Role.ADMIN)
+                ? invoiceRepository.findAllByOrderByCreatedAtDesc()
+                : invoiceRepository.findByUser_UserIdOrderByCreatedAtDesc(currentUser.getUserId());
+
+        return invoices.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Xem chi tiết 1 hóa đơn theo ID:
+     * - ADMIN: Xem được mọi hóa đơn.
+     * - STAFF: Chỉ xem được hóa đơn do chính mình tạo (nếu xem của người khác sẽ ném AccessDeniedException).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public InvoiceResponse getInvoiceById(Integer invoiceId, String username) {
+        User currentUser = resolveAuthenticatedStaff(username);
+
+        Invoice invoice = invoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hóa đơn với ID: " + invoiceId));
+
+        if (currentUser.getRole() != Role.ADMIN
+                && !currentUser.getUserId().equals(invoice.getUser().getUserId())) {
+            throw new AccessDeniedException("Bạn không có quyền xem hóa đơn của nhân viên khác!");
+        }
+
+        return mapToResponse(invoice);
     }
 
     /** Kiểm tra tính hợp lệ cơ bản của payload tạo hóa đơn. */
@@ -256,24 +298,26 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /** Chuyển đổi Entity hóa đơn cùng chi tiết giá đã tính sang DTO phản hồi cho client. */
-    private InvoiceResponse mapToResponse(Invoice invoice, BigDecimal subtotal, BigDecimal vat) {
+    private InvoiceResponse mapToResponse(Invoice invoice) {
         InvoiceResponse response = new InvoiceResponse();
         response.setInvoiceId(invoice.getInvoiceId());
         response.setUserId(invoice.getUser().getUserId());
         response.setStaffName(invoice.getUser().getFullName());
         response.setPaymentMethod(invoice.getPaymentMethod());
-        response.setSubtotal(subtotal);
-        response.setVat(vat);
         response.setTotalAmount(invoice.getTotalAmount());
         response.setCreatedAt(invoice.getCreatedAt());
 
+        BigDecimal subtotal = BigDecimal.ZERO;
         for (InvoiceDetail detail : invoice.getDetails()) {
+            BigDecimal lineTotal = calculateLineTotal(detail);
+            subtotal = subtotal.add(lineTotal);
+
             InvoiceResponse.Item item = new InvoiceResponse.Item();
             item.setProductId(detail.getProduct().getProductId());
             item.setProductName(detail.getProduct().getName());
             item.setQuantity(detail.getQuantity());
             item.setUnitPrice(detail.getUnitPrice());
-            item.setLineTotal(calculateLineTotal(detail));
+            item.setLineTotal(lineTotal);
 
             for (InvoiceDetailTopping t : detail.getToppings()) {
                 InvoiceResponse.ToppingItem toppingItem = new InvoiceResponse.ToppingItem();
@@ -285,6 +329,9 @@ public class InvoiceServiceImpl implements InvoiceService {
             }
             response.getItems().add(item);
         }
+
+        response.setSubtotal(subtotal);
+        response.setVat(calculateVat(subtotal));
         return response;
     }
 }

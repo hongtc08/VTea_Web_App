@@ -13,8 +13,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -25,8 +27,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Mục đích file: Unit test cho nghiệp vụ tạo hóa đơn và bảo mật API thanh toán
- * (tính toán lại giá từ DB, cộng thuế VAT 10% và chéo check giá tiền từ FE gửi lên).
+ * Mục đích file: Unit test cho nghiệp vụ tạo hóa đơn, bảo mật API thanh toán
+ * (tính toán lại giá từ DB, cộng thuế VAT 10%, chéo check giá tiền từ FE) và tra cứu lịch sử hóa đơn.
  */
 @ExtendWith(MockitoExtension.class)
 class InvoiceServiceImplTest {
@@ -40,10 +42,13 @@ class InvoiceServiceImplTest {
     private InvoiceServiceImpl invoiceService;
 
     private User staff;
+    private User otherStaff;
+    private User admin;
     private Product milkTea;
     private Product lemonTea;
     private Topping pearl;
     private Topping pudding;
+    private Invoice sampleInvoice;
 
     @BeforeEach
     void setUp() {
@@ -51,7 +56,22 @@ class InvoiceServiceImplTest {
         staff.setUserId(1);
         staff.setUsername("staff1");
         staff.setFullName("Nguyen Van A");
+        staff.setRole(Role.STAFF);
         staff.setStatus(Status.ACTIVE);
+
+        otherStaff = new User();
+        otherStaff.setUserId(2);
+        otherStaff.setUsername("staff2");
+        otherStaff.setFullName("Tran Thi B");
+        otherStaff.setRole(Role.STAFF);
+        otherStaff.setStatus(Status.ACTIVE);
+
+        admin = new User();
+        admin.setUserId(99);
+        admin.setUsername("admin");
+        admin.setFullName("Quan Tri Vien");
+        admin.setRole(Role.ADMIN);
+        admin.setStatus(Status.ACTIVE);
 
         Category activeCategory = new Category();
         activeCategory.setCategoryId(1);
@@ -63,6 +83,13 @@ class InvoiceServiceImplTest {
         lemonTea = product(11, "Trà chanh", "25000", null); // null = vẫn bán
         pearl = topping(20, "Trân châu", "5000", true);
         pudding = topping(21, "Pudding", "3000", true);
+
+        sampleInvoice = new Invoice();
+        sampleInvoice.setInvoiceId(100);
+        sampleInvoice.setUser(staff);
+        sampleInvoice.setPaymentMethod(PaymentMethod.CASH);
+        sampleInvoice.setTotalAmount(new BigDecimal("35000"));
+        sampleInvoice.setCreatedAt(LocalDateTime.now());
     }
 
     // ===================== Helpers =====================
@@ -118,7 +145,7 @@ class InvoiceServiceImplTest {
         verify(invoiceRepository, never()).save(any());
     }
 
-    // ===================== Tests =====================
+    // ===================== Create Invoice Tests =====================
 
     @Test
     void createInvoice_Success_CalculatesSubtotalVatAndTotalCorrectly() {
@@ -449,6 +476,77 @@ class InvoiceServiceImplTest {
         when(productRepository.findById(10)).thenReturn(Optional.of(milkTea));
         when(toppingRepository.findById(20)).thenReturn(Optional.of(pearl));
         assertBadRequest(request(item(10, 1, toppingItem(20, 1), toppingItem(20, 2))), "bị trùng");
+    }
+
+    // ===================== Invoice History & Detail Tests =====================
+
+    @Test
+    void getInvoices_Admin_ReturnsAllInvoices() {
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+        when(invoiceRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(sampleInvoice));
+
+        List<InvoiceResponse> result = invoiceService.getInvoices("admin");
+
+        assertEquals(1, result.size());
+        assertEquals(100, result.get(0).getInvoiceId());
+        verify(invoiceRepository, times(1)).findAllByOrderByCreatedAtDesc();
+        verify(invoiceRepository, never()).findByUser_UserIdOrderByCreatedAtDesc(any());
+    }
+
+    @Test
+    void getInvoices_Staff_ReturnsOwnInvoicesOnly() {
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(invoiceRepository.findByUser_UserIdOrderByCreatedAtDesc(1)).thenReturn(List.of(sampleInvoice));
+
+        List<InvoiceResponse> result = invoiceService.getInvoices("staff1");
+
+        assertEquals(1, result.size());
+        assertEquals(100, result.get(0).getInvoiceId());
+        verify(invoiceRepository, times(1)).findByUser_UserIdOrderByCreatedAtDesc(1);
+        verify(invoiceRepository, never()).findAllByOrderByCreatedAtDesc();
+    }
+
+    @Test
+    void getInvoiceById_Admin_CanViewAnyInvoice() {
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+        when(invoiceRepository.findById(100)).thenReturn(Optional.of(sampleInvoice));
+
+        InvoiceResponse res = invoiceService.getInvoiceById(100, "admin");
+
+        assertNotNull(res);
+        assertEquals(100, res.getInvoiceId());
+        assertEquals("Nguyen Van A", res.getStaffName());
+    }
+
+    @Test
+    void getInvoiceById_Staff_CanViewOwnInvoice() {
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+        when(invoiceRepository.findById(100)).thenReturn(Optional.of(sampleInvoice));
+
+        InvoiceResponse res = invoiceService.getInvoiceById(100, "staff1");
+
+        assertNotNull(res);
+        assertEquals(100, res.getInvoiceId());
+    }
+
+    @Test
+    void getInvoiceById_Staff_CannotViewOtherStaffInvoice_ThrowsAccessDenied() {
+        when(userRepository.findByUsername("staff2")).thenReturn(Optional.of(otherStaff));
+        when(invoiceRepository.findById(100)).thenReturn(Optional.of(sampleInvoice));
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class,
+                () -> invoiceService.getInvoiceById(100, "staff2"));
+        assertTrue(ex.getMessage().contains("không có quyền"));
+    }
+
+    @Test
+    void getInvoiceById_NotFound_ThrowsException() {
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+        when(invoiceRepository.findById(999)).thenReturn(Optional.empty());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> invoiceService.getInvoiceById(999, "admin"));
+        assertTrue(ex.getMessage().contains("Không tìm thấy hóa đơn với ID: 999"));
     }
 }
 
