@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from 'lucide-react';
+import { X, Printer } from 'lucide-react';
 import { CartItem } from '@/types/pos';
 
 export interface BillDetailData {
@@ -75,9 +75,232 @@ export default function BillPreviewModal({
           year: 'numeric',
           hour: '2-digit',
           minute: '2-digit',
+          second: '2-digit',
         }).format(dateObj)
       : String(createdAt);
   }
+
+  // Hàm xử lý xuất PDF / In hóa đơn
+  const handlePrint = () => {
+    const itemsHtml = items.map((item) => {
+      const unitPrice = getItemUnitPrice(item);
+      const lineTotal = unitPrice * item.quantity;
+      const toppingsHtml = item.toppings.map((t) => `
+        <tr class="topping-row">
+          <td colspan="4">+ ${t.name} (x${t.quantity}) - ${formatMoney(t.price * t.quantity * item.quantity)}đ</td>
+        </tr>
+      `).join('');
+
+      return `
+        <tr>
+          <td><strong>${item.product.name}</strong></td>
+          <td class="text-center">${item.quantity}</td>
+          <td class="text-right">${formatMoney(item.product.price)}</td>
+          <td class="text-right">${formatMoney(lineTotal)}</td>
+        </tr>
+        ${toppingsHtml}
+      `;
+    }).join('');
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Hóa đơn ${invoiceCode}</title>
+          <style>
+            @page {
+              size: 80mm auto;
+              margin: 0;
+            }
+            * {
+              box-sizing: border-box;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              font-size: 11px;
+              line-height: 1.35;
+              color: #111;
+              margin: 0;
+              padding: 0;
+              background: #fff;
+              display: flex;
+              justify-content: center;
+            }
+            .bill-wrapper {
+              width: 76mm;
+              padding: 6mm 2mm 8mm 2mm;
+              margin: 0 auto;
+            }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .header { margin-bottom: 6px; }
+            .header h2 {
+              margin: 0;
+              font-size: 15px;
+              font-weight: 800;
+              letter-spacing: 0.5px;
+            }
+            .header p {
+              margin: 2px 0 0 0;
+              font-size: 11px;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.3px;
+            }
+            .dashed-line {
+              border-top: 1px dashed #444;
+              margin: 6px 0;
+            }
+            .solid-line {
+              border-top: 1.5px solid #111;
+              margin: 6px 0;
+            }
+            .info-grid {
+              width: 100%;
+              margin-bottom: 4px;
+              font-size: 10.5px;
+              border-collapse: collapse;
+            }
+            .info-grid td {
+              padding: 1.5px 0;
+              vertical-align: top;
+            }
+            table.items-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 10.5px;
+            }
+            table.items-table th {
+              border-bottom: 1px dashed #444;
+              padding: 4px 0;
+              font-size: 10px;
+              font-weight: 700;
+              text-align: left;
+            }
+            table.items-table td {
+              padding: 3.5px 0 2px 0;
+              vertical-align: top;
+            }
+            .item-name {
+              font-weight: 600;
+              word-break: break-word;
+            }
+            .topping-row td {
+              padding: 1px 0 2px 6px;
+              font-size: 9.5px;
+              color: #555;
+            }
+            .summary-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 10.5px;
+              margin-top: 4px;
+            }
+            .summary-table td {
+              padding: 2px 0;
+            }
+            .total-row {
+              font-size: 12.5px;
+              font-weight: 800;
+            }
+            .footer {
+              margin-top: 12px;
+              text-align: center;
+              font-size: 10px;
+              color: #444;
+            }
+            .footer p {
+              margin: 2px 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="bill-wrapper">
+            <div class="header text-center">
+              <h2>VTEA COFFEE</h2>
+              <p>HÓA ĐƠN THANH TOÁN</p>
+            </div>
+            <div class="dashed-line"></div>
+            <table class="info-grid">
+              <tr>
+                <td>Mã HĐ: <strong>${invoiceCode}</strong></td>
+                <td class="text-right">${displayDate}</td>
+              </tr>
+              <tr>
+                <td>Thu ngân: ${staffName}</td>
+                <td class="text-right">TT: ${paymentMethod}</td>
+              </tr>
+            </table>
+            <div class="dashed-line"></div>
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th style="width: 46%;">TÊN MÓN</th>
+                  <th class="text-center" style="width: 12%;">SL</th>
+                  <th class="text-right" style="width: 20%;">GIÁ</th>
+                  <th class="text-right" style="width: 22%;">TIỀN</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+              </tbody>
+            </table>
+            <div class="dashed-line"></div>
+            <table class="summary-table">
+              <tr>
+                <td>Tạm tính:</td>
+                <td class="text-right">${formatMoney(subtotal)} đ</td>
+              </tr>
+              <tr>
+                <td>VAT (10%):</td>
+                <td class="text-right">${formatMoney(vat)} đ</td>
+              </tr>
+            </table>
+            <div class="solid-line"></div>
+            <table class="summary-table total-row">
+              <tr>
+                <td>TỔNG CỘNG:</td>
+                <td class="text-right">${formatMoney(total)} VND</td>
+              </tr>
+            </table>
+            <div class="solid-line"></div>
+            <div class="footer">
+              <p>Cảm ơn quý khách!</p>
+              <p>Hẹn gặp lại quý khách lần sau</p>
+            </div>
+          </div>
+          <script>
+            window.onload = function() {
+              window.focus();
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    // Tạo iframe ẩn để in riêng hóa đơn mà không ảnh hưởng toàn bộ giao diện app
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(printContent);
+      doc.close();
+      // Xóa iframe sau khi in xong
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 2000);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-xs">
@@ -188,10 +411,11 @@ HÓA ĐƠN THANH TOÁN
         <div className="flex justify-end gap-3 border-t border-border bg-cream-50/80 px-5 py-3">
           <button
             type="button"
-            disabled
-            className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-accent opacity-50 cursor-not-allowed"
+            onClick={handlePrint}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2 text-xs font-bold text-accent shadow-xs transition-colors hover:bg-primary-hover cursor-pointer"
           >
-            Xuất PDF
+            <Printer size={15} />
+            Xuất PDF / In
           </button>
           <button
             type="button"
