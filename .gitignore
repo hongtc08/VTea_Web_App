@@ -22,3 +22,5 @@ frontend/.next/
 automation/
 backend/run-unit-tests.bat
 
+*.xlsx
+*.xls

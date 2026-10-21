@@ -2,6 +2,7 @@ package com.kiemchung.vtea.presentation.controller;
 
 import com.kiemchung.vtea.application.service.StatisticsService;
 import com.kiemchung.vtea.domain.dto.response.RevenueStatisticsResponse;
+import com.kiemchung.vtea.domain.dto.response.TopProductResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
@@ -44,6 +46,39 @@ class StatisticsControllerTest {
         sampleResponse.setEndDate(endDate);
         sampleResponse.setTotalRevenue(new BigDecimal("1500000"));
         sampleResponse.setTotalInvoices(25L);
+    }
+
+    @Test
+    void getTopSellingProducts_Success_Returns200() {
+        List<TopProductResponse> top = List.of(
+                new TopProductResponse(1, "Cà phê Sữa đá", 15L, new BigDecimal("450000")));
+        when(statisticsService.getTopSellingProducts(startDate, endDate, 5)).thenReturn(top);
+
+        ResponseEntity<?> response = statisticsController.getTopSellingProducts(startDate, endDate, 5);
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(top, response.getBody());
+    }
+
+    @Test
+    void getTopSellingProducts_NoParams_Returns200WithEmptyList() {
+        when(statisticsService.getTopSellingProducts(null, null, null)).thenReturn(List.of());
+
+        ResponseEntity<?> response = statisticsController.getTopSellingProducts(null, null, null);
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(List.of(), response.getBody());
+    }
+
+    @Test
+    void getTopSellingProducts_InvalidInput_Returns400() {
+        when(statisticsService.getTopSellingProducts(startDate, endDate, 99))
+                .thenThrow(new IllegalArgumentException("Số lượng món phải nằm trong khoảng 1 đến 50!"));
+
+        ResponseEntity<?> response = statisticsController.getTopSellingProducts(startDate, endDate, 99);
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals("Số lượng món phải nằm trong khoảng 1 đến 50!", response.getBody());
     }
 
     @Test

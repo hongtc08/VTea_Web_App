@@ -3,8 +3,11 @@ package com.kiemchung.vtea.application.service.impl;
 import com.kiemchung.vtea.application.service.StatisticsService;
 import com.kiemchung.vtea.domain.dto.response.RevenueStatisticsResponse;
 import com.kiemchung.vtea.domain.dto.response.RevenueStatisticsResponse.RevenuePoint;
+import com.kiemchung.vtea.domain.dto.response.TopProductResponse;
 import com.kiemchung.vtea.domain.entity.Invoice;
+import com.kiemchung.vtea.domain.repository.InvoiceDetailRepository;
 import com.kiemchung.vtea.domain.repository.InvoiceRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,10 +34,17 @@ public class StatisticsServiceImpl implements StatisticsService {
     public static final String GROUP_BY_WEEK = "WEEK";
     public static final String GROUP_BY_MONTH = "MONTH";
 
-    private final InvoiceRepository invoiceRepository;
+    /** Số món mặc định / tối đa của bảng xếp hạng top món bán chạy. */
+    public static final int DEFAULT_TOP_LIMIT = 5;
+    public static final int MAX_TOP_LIMIT = 50;
 
-    public StatisticsServiceImpl(InvoiceRepository invoiceRepository) {
+    private final InvoiceRepository invoiceRepository;
+    private final InvoiceDetailRepository invoiceDetailRepository;
+
+    public StatisticsServiceImpl(InvoiceRepository invoiceRepository,
+                                 InvoiceDetailRepository invoiceDetailRepository) {
         this.invoiceRepository = invoiceRepository;
+        this.invoiceDetailRepository = invoiceDetailRepository;
     }
 
     /**
@@ -84,6 +94,23 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     /**
+     * Lấy bảng xếp hạng top món bán chạy nhất theo tổng số lượng bán trong khoảng thời gian.
+     * Số lượng món mặc định là 5, hợp lệ trong khoảng 1..50.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<TopProductResponse> getTopSellingProducts(LocalDate startDate, LocalDate endDate, Integer limit) {
+        int normalizedLimit = normalizeTopLimit(limit);
+        validateDateRange(startDate, endDate);
+
+        return invoiceDetailRepository.findTopSellingProducts(
+                resolveFromDateTime(startDate),
+                resolveToDateTime(endDate),
+                PageRequest.of(0, normalizedLimit)
+        );
+    }
+
+    /**
      * Chuẩn hóa tham số groupBy về 1 trong 3 giá trị chuẩn: DAY, WEEK, MONTH.
      */
     private String normalizeGroupBy(String groupBy) {
@@ -111,18 +138,37 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     /**
+     * Chuẩn hóa số lượng món cần lấy: null thì dùng mặc định, ngoài khoảng 1..50 thì báo lỗi.
+     */
+    private int normalizeTopLimit(Integer limit) {
+        if (limit == null) {
+            return DEFAULT_TOP_LIMIT;
+        }
+        if (limit < 1 || limit > MAX_TOP_LIMIT) {
+            throw new IllegalArgumentException("Số lượng món phải nằm trong khoảng 1 đến " + MAX_TOP_LIMIT + "!");
+        }
+        return limit;
+    }
+
+    /** Mốc thời gian bắt đầu của bộ lọc: đầu ngày startDate, hoặc từ năm 1970 nếu không lọc. */
+    private LocalDateTime resolveFromDateTime(LocalDate startDate) {
+        return (startDate != null) ? startDate.atStartOfDay() : LocalDate.of(1970, 1, 1).atStartOfDay();
+    }
+
+    /** Mốc thời gian kết thúc của bộ lọc: cuối ngày endDate, hoặc đến năm 9999 nếu không lọc. */
+    private LocalDateTime resolveToDateTime(LocalDate endDate) {
+        return (endDate != null) ? endDate.atTime(LocalTime.MAX) : LocalDateTime.of(9999, 12, 31, 23, 59, 59);
+    }
+
+    /**
      * Truy vấn danh sách hóa đơn từ Database theo khoảng thời gian lọc.
      */
     private List<Invoice> fetchInvoices(LocalDate startDate, LocalDate endDate) {
         if (startDate == null && endDate == null) {
             return invoiceRepository.findAllByOrderByCreatedAtAsc();
         }
-        LocalDateTime from = (startDate != null)
-                ? startDate.atStartOfDay()
-                : LocalDate.of(1970, 1, 1).atStartOfDay();
-        LocalDateTime to = (endDate != null)
-                ? endDate.atTime(LocalTime.MAX)
-                : LocalDateTime.of(9999, 12, 31, 23, 59, 59);
+        LocalDateTime from = resolveFromDateTime(startDate);
+        LocalDateTime to = resolveToDateTime(endDate);
 
         return invoiceRepository.findByCreatedAtBetweenOrderByCreatedAtAsc(from, to);
     }
