@@ -4,6 +4,7 @@ import com.kiemchung.vtea.domain.entity.Invoice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -21,4 +22,14 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
      * Lấy danh sách hóa đơn do 1 nhân viên tạo (dành cho STAFF), sắp xếp mới nhất lên đầu.
      */
     List<Invoice> findByUser_UserIdOrderByCreatedAtDesc(Integer userId);
+
+    /**
+     * Lấy toàn bộ hóa đơn sắp xếp tăng dần theo thời gian tạo (phục vụ thống kê).
+     */
+    List<Invoice> findAllByOrderByCreatedAtAsc();
+
+    /**
+     * Lấy danh sách hóa đơn trong khoảng thời gian chỉ định, sắp xếp tăng dần theo thời gian tạo.
+     */
+    List<Invoice> findByCreatedAtBetweenOrderByCreatedAtAsc(LocalDateTime startDateTime, LocalDateTime endDateTime);
 }
