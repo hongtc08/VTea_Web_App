@@ -81,4 +81,25 @@ public class StatisticsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return getRevenueStatistics(startDate, endDate, "MONTH");
     }
+
+    /**
+     * API lấy danh sách top món bán chạy nhất theo số lượng bán (chỉ dành cho ADMIN).
+     * GET /api/statistics/top-products?startDate=2026-06-01&endDate=2026-06-30&limit=5
+     *
+     * @param startDate Ngày bắt đầu (YYYY-MM-DD, tùy chọn)
+     * @param endDate   Ngày kết thúc (YYYY-MM-DD, tùy chọn)
+     * @param limit     Số món tối đa (1..50, mặc định 5)
+     */
+    @GetMapping("/top-products")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getTopSellingProducts(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Integer limit) {
+        try {
+            return ResponseEntity.ok(statisticsService.getTopSellingProducts(startDate, endDate, limit));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }
