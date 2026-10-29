@@ -1,6 +1,7 @@
 package com.kiemchung.vtea.application.service.impl;
 
 import com.kiemchung.vtea.domain.dto.request.CreateUserRequest;
+import com.kiemchung.vtea.domain.dto.request.UpdateUserRequest;
 import com.kiemchung.vtea.domain.dto.response.UserResponse;
 import com.kiemchung.vtea.domain.entity.Role;
 import com.kiemchung.vtea.domain.entity.Status;
@@ -15,13 +16,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
+/**
+ * Mục đích file: Unit test cho UserServiceImpl.
+ */
 @ExtendWith(MockitoExtension.class)
-public class UserServiceImplTest {
+class UserServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
@@ -58,15 +65,12 @@ public class UserServiceImplTest {
 
     @Test
     void createUser_Success() {
-        // Arrange
         when(userRepository.existsByUsername("staff1")).thenReturn(false);
         when(passwordEncoder.encode("123456")).thenReturn("encoded_password");
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
 
-        // Act
         UserResponse response = userService.createUser(request);
 
-        // Assert
         assertNotNull(response);
         assertEquals(1, response.getUserId());
         assertEquals("staff1", response.getUsername());
@@ -83,13 +87,9 @@ public class UserServiceImplTest {
 
     @Test
     void createUser_ThrowsException_WhenUsernameExists() {
-        // Arrange
         when(userRepository.existsByUsername("staff1")).thenReturn(true);
 
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            userService.createUser(request);
-        });
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> userService.createUser(request));
 
         assertEquals("Tên đăng nhập đã tồn tại!", exception.getMessage());
         verify(userRepository, times(1)).existsByUsername("staff1");
@@ -99,13 +99,10 @@ public class UserServiceImplTest {
 
     @Test
     void getAllUsers_Success() {
-        // Arrange
-        when(userRepository.findAll()).thenReturn(java.util.List.of(savedUser));
+        when(userRepository.findAll()).thenReturn(List.of(savedUser));
 
-        // Act
-        java.util.List<UserResponse> responses = userService.getAllUsers();
+        List<UserResponse> responses = userService.getAllUsers();
 
-        // Assert
         assertNotNull(responses);
         assertEquals(1, responses.size());
         assertEquals("staff1", responses.get(0).getUsername());
@@ -114,13 +111,10 @@ public class UserServiceImplTest {
 
     @Test
     void getUserById_Success() {
-        // Arrange
-        when(userRepository.findById(1)).thenReturn(java.util.Optional.of(savedUser));
+        when(userRepository.findById(1)).thenReturn(Optional.of(savedUser));
 
-        // Act
         UserResponse response = userService.getUserById(1);
 
-        // Assert
         assertNotNull(response);
         assertEquals(1, response.getUserId());
         assertEquals("staff1", response.getUsername());
@@ -129,53 +123,72 @@ public class UserServiceImplTest {
 
     @Test
     void getUserById_NotFound_ThrowsException() {
-        // Arrange
-        when(userRepository.findById(99)).thenReturn(java.util.Optional.empty());
+        when(userRepository.findById(99)).thenReturn(Optional.empty());
 
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            userService.getUserById(99);
-        });
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> userService.getUserById(99));
 
         assertTrue(exception.getMessage().contains("Không tìm thấy tài khoản với ID: 99"));
         verify(userRepository, times(1)).findById(99);
     }
 
     @Test
-    void updateUser_Success() {
-        // Arrange
-        com.kiemchung.vtea.domain.dto.request.UpdateUserRequest updateRequest = new com.kiemchung.vtea.domain.dto.request.UpdateUserRequest();
+    void updateUser_Success_AllFields() {
+        UpdateUserRequest updateRequest = new UpdateUserRequest();
         updateRequest.setFullName("Nguyen Van B");
         updateRequest.setPhone("0999999999");
+        updateRequest.setRole(Role.ADMIN);
         updateRequest.setStatus(Status.DELETED);
 
-        when(userRepository.findById(1)).thenReturn(java.util.Optional.of(savedUser));
+        when(userRepository.findById(1)).thenReturn(Optional.of(savedUser));
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArguments()[0]);
 
-        // Act
         UserResponse response = userService.updateUser(1, updateRequest);
 
-        // Assert
         assertNotNull(response);
         assertEquals("Nguyen Van B", response.getFullName());
         assertEquals("0999999999", response.getPhone());
+        assertEquals(Role.ADMIN, response.getRole());
         assertEquals(Status.DELETED, response.getStatus());
-        assertEquals(Role.STAFF, response.getRole()); // Role không bị ghi đè thành null
-        
         verify(userRepository, times(1)).findById(1);
         verify(userRepository, times(1)).save(any(User.class));
     }
 
     @Test
-    void deleteUser_Success() {
-        // Arrange
-        when(userRepository.findById(1)).thenReturn(java.util.Optional.of(savedUser));
+    void updateUser_Success_NullFieldsKeepOriginal() {
+        UpdateUserRequest updateRequest = new UpdateUserRequest(); // all null
+
+        when(userRepository.findById(1)).thenReturn(Optional.of(savedUser));
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArguments()[0]);
 
-        // Act
+        UserResponse response = userService.updateUser(1, updateRequest);
+
+        assertNotNull(response);
+        assertEquals("Nguyen Van A", response.getFullName());
+        assertEquals("0123456789", response.getPhone());
+        assertEquals(Role.STAFF, response.getRole());
+        assertEquals(Status.ACTIVE, response.getStatus());
+        verify(userRepository, times(1)).findById(1);
+        verify(userRepository, times(1)).save(any(User.class));
+    }
+
+    @Test
+    void updateUser_NotFound_ThrowsException() {
+        when(userRepository.findById(99)).thenReturn(Optional.empty());
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> userService.updateUser(99, new UpdateUserRequest()));
+
+        assertTrue(exception.getMessage().contains("Không tìm thấy tài khoản với ID: 99"));
+        verify(userRepository, times(1)).findById(99);
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void deleteUser_Success() {
+        when(userRepository.findById(1)).thenReturn(Optional.of(savedUser));
+        when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArguments()[0]);
+
         userService.deleteUser(1);
 
-        // Assert
         assertEquals(Status.DELETED, savedUser.getStatus());
         verify(userRepository, times(1)).findById(1);
         verify(userRepository, times(1)).save(savedUser);
@@ -183,13 +196,9 @@ public class UserServiceImplTest {
 
     @Test
     void deleteUser_NotFound_ThrowsException() {
-        // Arrange
-        when(userRepository.findById(99)).thenReturn(java.util.Optional.empty());
+        when(userRepository.findById(99)).thenReturn(Optional.empty());
 
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            userService.deleteUser(99);
-        });
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> userService.deleteUser(99));
 
         assertTrue(exception.getMessage().contains("Không tìm thấy tài khoản với ID: 99"));
         verify(userRepository, times(1)).findById(99);
