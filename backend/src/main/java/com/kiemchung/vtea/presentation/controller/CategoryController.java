@@ -57,7 +57,10 @@ public class CategoryController {
         try {
             return ResponseEntity.ok(categoryService.updateCategory(id, request));
         } catch (RuntimeException e) {
-            return ResponseEntity.status(404).body(e.getMessage());
+            if (e.getMessage() != null && e.getMessage().contains("Không tìm thấy")) {
+                return ResponseEntity.status(404).body(e.getMessage());
+            }
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Lỗi server: " + e.getMessage());
         }
