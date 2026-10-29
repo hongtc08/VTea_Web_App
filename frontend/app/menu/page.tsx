@@ -6,23 +6,18 @@ import AddMenuItemModal from "@/components/menu/AddMenuItemModal";
 import MenuItemCard from "@/components/menu/MenuItemCard";
 import CategoryManagerModal from "@/components/menu/CategoryManagerModal";
 import { menuService } from "@/services/menuService";
+import { categoryService } from "@/services/categoryService";
 import { MenuItem, Category } from "@/types/menu";
 import { matchesSearchTerm } from "@/lib/utils";
 import { toast } from "sonner";
 
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 1, name: "Cà phê", status: "Đang bán" },
-  { id: 2, name: "Trà", status: "Đang bán" },
-  { id: 3, name: "Sinh tố", status: "Đang bán" },
-  { id: 4, name: "Nước Ép", status: "Đang bán" },
-  { id: 5, name: "Đá xay", status: "Đang bán" },
-  { id: 6, name: "Trà sữa", status: "Đang bán" },
-];
-
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [toppings, setToppings] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  // Danh mục đang bán: dùng cho tab lọc và form thêm/sửa món
+  const [categories, setCategories] = useState<Category[]>([]);
+  // Toàn bộ danh mục (kể cả ngưng bán): dùng cho modal quản lý danh mục
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,33 +30,21 @@ export default function MenuPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-  // Tải danh sách món và topping từ API
+  // Tải danh sách món, topping và danh mục từ API
   const loadMenuData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [fetchedItems, fetchedToppings] = await Promise.all([
+      const [fetchedItems, fetchedToppings, fetchedAvailable, fetchedAll] = await Promise.all([
         menuService.getAllMenuItems(),
         menuService.getAllToppings().catch(() => [] as MenuItem[]),
+        categoryService.getAvailableCategories(),
+        categoryService.getAllCategories(),
       ]);
       setItems(fetchedItems);
       setToppings(fetchedToppings);
-
-      // Tự động bổ sung category từ danh sách món nếu có category mới
-      if (fetchedItems.length > 0) {
-        const itemCategories = Array.from(new Set(fetchedItems.map((item) => item.category).filter(Boolean)));
-        setCategories((prev) => {
-          const existingNames = new Set(prev.map((c) => c.name));
-          const newCategories = itemCategories
-            .filter((name) => !existingNames.has(name))
-            .map((name, index) => ({
-              id: prev.length + index + 1,
-              name,
-              status: "Đang bán",
-            }));
-          return [...prev, ...newCategories];
-        });
-      }
+      setCategories(fetchedAvailable);
+      setAllCategories(fetchedAll);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Không thể tải danh sách thực đơn từ máy chủ.";
       setError(message);
@@ -71,32 +54,31 @@ export default function MenuPage() {
     }
   }, []);
 
+  // Tải lại riêng danh mục sau khi thêm/sửa/xóa
+  const reloadCategories = useCallback(async () => {
+    const [fetchedAvailable, fetchedAll] = await Promise.all([
+      categoryService.getAvailableCategories(),
+      categoryService.getAllCategories(),
+    ]);
+    setCategories(fetchedAvailable);
+    setAllCategories(fetchedAll);
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
     Promise.all([
       menuService.getAllMenuItems(),
       menuService.getAllToppings().catch(() => [] as MenuItem[]),
+      categoryService.getAvailableCategories(),
+      categoryService.getAllCategories(),
     ])
-      .then(([fetchedItems, fetchedToppings]) => {
+      .then(([fetchedItems, fetchedToppings, fetchedAvailable, fetchedAll]) => {
         if (!isMounted) return;
         setItems(fetchedItems);
         setToppings(fetchedToppings);
-
-        if (fetchedItems.length > 0) {
-          const itemCategories = Array.from(new Set(fetchedItems.map((item) => item.category).filter(Boolean)));
-          setCategories((prev) => {
-            const existingNames = new Set(prev.map((c) => c.name));
-            const newCategories = itemCategories
-              .filter((name) => !existingNames.has(name))
-              .map((name, index) => ({
-                id: prev.length + index + 1,
-                name,
-                status: "Đang bán",
-              }));
-            return [...prev, ...newCategories];
-          });
-        }
+        setCategories(fetchedAvailable);
+        setAllCategories(fetchedAll);
         setIsLoading(false);
       })
       .catch((err: unknown) => {
@@ -299,11 +281,10 @@ export default function MenuPage() {
               <button
                 key={category}
                 onClick={() => setActiveCategory(category)}
-                className={`px-4 py-1.5 rounded-[var(--radius-control)] text-sm font-medium transition-all cursor-pointer ${
-                  activeCategory === category
+                className={`px-4 py-1.5 rounded-[var(--radius-control)] text-sm font-medium transition-all cursor-pointer ${activeCategory === category
                     ? "bg-primary text-accent border border-primary shadow-xs"
                     : "bg-background text-muted hover:text-foreground hover:bg-cream-100 border border-border"
-                }`}
+                  }`}
               >
                 {category}
               </button>
@@ -396,18 +377,33 @@ export default function MenuPage() {
       <CategoryManagerModal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
-        categories={categories}
-        onAdd={(name) => {
-          setCategories((prev) => [...prev, { id: Date.now(), name, status: "Đang bán" }]);
-          toast.success(`Đã thêm danh mục "${name}"`);
+        categories={allCategories}
+        onAdd={async (name) => {
+          try {
+            await categoryService.createCategory({ name, isAvailable: true });
+            await reloadCategories();
+            toast.success(`Đã thêm danh mục "${name}"`);
+          } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Không thể thêm danh mục.");
+          }
         }}
-        onUpdate={(id, name) => {
-          setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
-          toast.success("Cập nhật danh mục thành công!");
+        onUpdate={async (id, name) => {
+          try {
+            await categoryService.updateCategory(id, { name });
+            await Promise.all([reloadCategories(), loadMenuData()]);
+            toast.success("Cập nhật danh mục thành công!");
+          } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Không thể cập nhật danh mục.");
+          }
         }}
-        onDelete={(id) => {
-          setCategories((prev) => prev.filter((c) => c.id !== id));
-          toast.success("Đã xóa danh mục!");
+        onDelete={async (id) => {
+          try {
+            await categoryService.deleteCategory(id);
+            await reloadCategories();
+            toast.success("Đã ngưng bán danh mục!");
+          } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Không thể xóa danh mục.");
+          }
         }}
       />
 

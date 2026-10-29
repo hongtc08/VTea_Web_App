@@ -46,6 +46,11 @@ export interface CategoryResponseDto {
   isAvailable?: boolean;
 }
 
+export interface CategoryRequestDto {
+  name?: string;
+  isAvailable?: boolean;
+}
+
 export interface CreateToppingRequestDto {
   name: string;
   price: number;

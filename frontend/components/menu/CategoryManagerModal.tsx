@@ -132,7 +132,15 @@ export default function CategoryManagerModal({
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-foreground">{cat.status}</span>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${
+                          cat.status === "Đang bán"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-50 text-danger"
+                        }`}
+                      >
+                        {cat.status}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
