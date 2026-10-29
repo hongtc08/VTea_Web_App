@@ -1,28 +1,28 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Search, Folder, Layers, Plus, ArrowLeft, AlertCircle, Trash2 } from "lucide-react";
+import {
+  Search,
+  Folder,
+  Layers,
+  Plus,
+  ArrowLeft,
+  AlertCircle,
+  Trash2,
+} from "lucide-react";
 import AddMenuItemModal from "@/components/menu/AddMenuItemModal";
 import MenuItemCard from "@/components/menu/MenuItemCard";
 import CategoryManagerModal from "@/components/menu/CategoryManagerModal";
 import { menuService } from "@/services/menuService";
+import { categoryService } from "@/services/categoryService";
 import { MenuItem, Category } from "@/types/menu";
 import { matchesSearchTerm } from "@/lib/utils";
 import { toast } from "sonner";
 
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 1, name: "Cà phê", status: "Đang bán" },
-  { id: 2, name: "Trà", status: "Đang bán" },
-  { id: 3, name: "Sinh tố", status: "Đang bán" },
-  { id: 4, name: "Nước Ép", status: "Đang bán" },
-  { id: 5, name: "Đá xay", status: "Đang bán" },
-  { id: 6, name: "Trà sữa", status: "Đang bán" },
-];
-
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [toppings, setToppings] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,39 +35,29 @@ export default function MenuPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-  // Tải danh sách món và topping từ API
-  const loadMenuData = useCallback(async () => {
-    setIsLoading(true);
+  // Tải lại danh sách món, topping và danh mục từ API (hỗ trợ silent reload để không giật màn hình)
+  const loadMenuData = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     setError(null);
     try {
-      const [fetchedItems, fetchedToppings] = await Promise.all([
-        menuService.getAllMenuItems(),
-        menuService.getAllToppings().catch(() => [] as MenuItem[]),
-      ]);
+      const [fetchedItems, fetchedToppings, fetchedCategories] =
+        await Promise.all([
+          menuService.getAllMenuItems(),
+          menuService.getAllToppings().catch(() => [] as MenuItem[]),
+          categoryService.getAllCategories().catch(() => [] as Category[]),
+        ]);
       setItems(fetchedItems);
       setToppings(fetchedToppings);
-
-      // Tự động bổ sung category từ danh sách món nếu có category mới
-      if (fetchedItems.length > 0) {
-        const itemCategories = Array.from(new Set(fetchedItems.map((item) => item.category).filter(Boolean)));
-        setCategories((prev) => {
-          const existingNames = new Set(prev.map((c) => c.name));
-          const newCategories = itemCategories
-            .filter((name) => !existingNames.has(name))
-            .map((name, index) => ({
-              id: prev.length + index + 1,
-              name,
-              status: "Đang bán",
-            }));
-          return [...prev, ...newCategories];
-        });
-      }
+      setCategories(fetchedCategories);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Không thể tải danh sách thực đơn từ máy chủ.";
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Không thể tải danh sách thực đơn từ máy chủ.";
       setError(message);
       toast.error(message);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, []);
 
@@ -77,31 +67,21 @@ export default function MenuPage() {
     Promise.all([
       menuService.getAllMenuItems(),
       menuService.getAllToppings().catch(() => [] as MenuItem[]),
+      categoryService.getAllCategories().catch(() => [] as Category[]),
     ])
-      .then(([fetchedItems, fetchedToppings]) => {
+      .then(([fetchedItems, fetchedToppings, fetchedCategories]) => {
         if (!isMounted) return;
         setItems(fetchedItems);
         setToppings(fetchedToppings);
-
-        if (fetchedItems.length > 0) {
-          const itemCategories = Array.from(new Set(fetchedItems.map((item) => item.category).filter(Boolean)));
-          setCategories((prev) => {
-            const existingNames = new Set(prev.map((c) => c.name));
-            const newCategories = itemCategories
-              .filter((name) => !existingNames.has(name))
-              .map((name, index) => ({
-                id: prev.length + index + 1,
-                name,
-                status: "Đang bán",
-              }));
-            return [...prev, ...newCategories];
-          });
-        }
+        setCategories(fetchedCategories);
         setIsLoading(false);
       })
       .catch((err: unknown) => {
         if (!isMounted) return;
-        const message = err instanceof Error ? err.message : "Không thể tải danh sách thực đơn.";
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Không thể tải danh sách thực đơn.";
         setError(message);
         toast.error(message);
         setIsLoading(false);
@@ -113,12 +93,15 @@ export default function MenuPage() {
   }, []);
 
   const isToppingView = currentView === "topping";
-  const categoryTabs = ["Tất cả", ...categories.map((c) => c.name)];
+  const availableCategories = categories.filter((c) => c.isAvailable !== false);
+  const categoryTabs = ["Tất cả", ...availableCategories.map((c) => c.name)];
   const displayData = isToppingView ? toppings : items;
 
   const filteredItems = displayData.filter((item) => {
     const matchesCategory =
-      isToppingView || activeCategory === "Tất cả" || item.category === activeCategory;
+      isToppingView ||
+      activeCategory === "Tất cả" ||
+      item.category === activeCategory;
     const matchesSearch =
       matchesSearchTerm(item.name, searchQuery) ||
       matchesSearchTerm(item.category, searchQuery);
@@ -174,9 +157,10 @@ export default function MenuPage() {
         }
       }
 
-      await loadMenuData();
+      await loadMenuData(true);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Thao tác không thành công.";
+      const message =
+        err instanceof Error ? err.message : "Thao tác không thành công.";
       toast.error(message);
       throw err;
     }
@@ -195,12 +179,95 @@ export default function MenuPage() {
         toast.success(`Đã xóa món "${itemToDelete.name}"!`);
       }
       setItemToDelete(null);
-      await loadMenuData();
+      await loadMenuData(true);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Lỗi khi xóa mục đã chọn.";
+      const message =
+        err instanceof Error ? err.message : "Lỗi khi xóa mục đã chọn.";
       toast.error(message);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Thêm danh mục mới qua API
+  const handleAddCategory = async (name: string) => {
+    const trimmed = name.trim();
+    const isDuplicate = categories.some(
+      (c) => c.name.trim().toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (isDuplicate) {
+      toast.error(`Danh mục "${trimmed}" đã tồn tại!`);
+      throw new Error(`Danh mục "${trimmed}" đã tồn tại!`);
+    }
+
+    try {
+      await categoryService.createCategory({ name: trimmed });
+      toast.success(`Đã thêm danh mục "${trimmed}"`);
+      await loadMenuData(true);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Không thể thêm danh mục.";
+      toast.error(message);
+      throw err;
+    }
+  };
+
+  // Sửa tên danh mục qua API (Enter để lưu)
+  const handleUpdateCategory = async (id: number, name: string) => {
+    const trimmed = name.trim();
+    const isDuplicate = categories.some(
+      (c) =>
+        c.id !== id && c.name.trim().toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (isDuplicate) {
+      toast.error(`Danh mục "${trimmed}" đã tồn tại!`);
+      throw new Error(`Danh mục "${trimmed}" đã tồn tại!`);
+    }
+
+    try {
+      await categoryService.updateCategory(id, { name: trimmed });
+      toast.success("Cập nhật danh mục thành công!");
+      await loadMenuData(true);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Không thể cập nhật danh mục.";
+      toast.error(message);
+      throw err;
+    }
+  };
+
+  // Xóa danh mục qua API (ngừng bán)
+  const handleDeleteCategory = async (id: number) => {
+    try {
+      await categoryService.deleteCategory(id);
+      toast.success("Đã ngừng bán danh mục!");
+      await loadMenuData(true);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Không thể xóa danh mục.";
+      toast.error(message);
+      throw err;
+    }
+  };
+
+  // Mở bán lại danh mục qua API
+  const handleToggleCategoryStatus = async (
+    id: number,
+    isAvailable: boolean,
+  ) => {
+    try {
+      await categoryService.updateCategory(id, { isAvailable });
+      toast.success(
+        isAvailable ? "Đã mở bán lại danh mục!" : "Đã ngừng bán danh mục!",
+      );
+      await loadMenuData(true);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Cập nhật trạng thái danh mục thất bại.";
+      toast.error(message);
+      throw err;
     }
   };
 
@@ -286,7 +353,11 @@ export default function MenuPage() {
           </div>
           <input
             type="text"
-            placeholder={isToppingView ? "Tìm kiếm tên topping..." : "Tìm kiếm tên món ăn, danh mục..."}
+            placeholder={
+              isToppingView
+                ? "Tìm kiếm tên topping..."
+                : "Tìm kiếm tên món ăn, danh mục..."
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-[var(--radius-control)] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm text-foreground placeholder:text-muted"
@@ -387,7 +458,7 @@ export default function MenuPage() {
           }}
           onSave={handleSaveItem}
           mode={currentView}
-          categories={categories.map((c) => c.name)}
+          categories={availableCategories.map((c) => c.name)}
           itemToEdit={itemToEdit}
         />
       )}
@@ -397,18 +468,10 @@ export default function MenuPage() {
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
         categories={categories}
-        onAdd={(name) => {
-          setCategories((prev) => [...prev, { id: Date.now(), name, status: "Đang bán" }]);
-          toast.success(`Đã thêm danh mục "${name}"`);
-        }}
-        onUpdate={(id, name) => {
-          setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
-          toast.success("Cập nhật danh mục thành công!");
-        }}
-        onDelete={(id) => {
-          setCategories((prev) => prev.filter((c) => c.id !== id));
-          toast.success("Đã xóa danh mục!");
-        }}
+        onAdd={handleAddCategory}
+        onUpdate={handleUpdateCategory}
+        onDelete={handleDeleteCategory}
+        onToggleStatus={handleToggleCategoryStatus}
       />
 
       {/* Modal Xác nhận Xóa */}
@@ -420,14 +483,21 @@ export default function MenuPage() {
                 <Trash2 size={20} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-foreground">Xác nhận xóa</h3>
-                <p className="text-xs text-muted">Hành động này không thể hoàn tác</p>
+                <h3 className="text-lg font-bold text-foreground">
+                  Xác nhận xóa
+                </h3>
+                <p className="text-xs text-muted">
+                  Hành động này không thể hoàn tác
+                </p>
               </div>
             </div>
 
             <p className="text-sm text-foreground">
               Bạn có chắc chắn muốn xóa {isToppingView ? "topping" : "món nước"}{" "}
-              <strong className="text-primary font-bold">&quot;{itemToDelete.name}&quot;</strong> khỏi hệ thống?
+              <strong className="text-primary font-bold">
+                &quot;{itemToDelete.name}&quot;
+              </strong>{" "}
+              khỏi hệ thống?
             </p>
 
             <div className="flex justify-end gap-3 pt-2">
