@@ -5,6 +5,7 @@ import {
   PosProductResponseDto,
   ToppingResponseDto,
 } from '@/types/menu';
+import { CreateInvoiceRequest, InvoiceResponse } from '@/types/invoiceApi';
 
 export interface PosProductQuery {
   search?: string;
@@ -12,13 +13,29 @@ export interface PosProductQuery {
   categoryId?: number;
 }
 
-function buildProductQuery(params: PosProductQuery = {}): string {
+export interface PosMenuData {
+  categories: string[];
+  products: Product[];
+  toppings: Topping[];
+}
+
+interface PosMenuResponseDto {
+  categories: CategoryResponseDto[];
+  products: PosProductResponseDto[];
+  toppings: ToppingResponseDto[];
+}
+
+function buildPosMenuQuery(params: PosProductQuery = {}): string {
   const query = new URLSearchParams();
   const search = params.search?.trim();
   const category = params.category?.trim();
 
-  if (search) query.set('search', search);
-  if (params.categoryId) query.set('categoryId', String(params.categoryId));
+  if (search) {
+    query.set('search', search);
+  }
+  if (params.categoryId) {
+    query.set('categoryId', String(params.categoryId));
+  }
   if (category && category.toLowerCase() !== 'all' && category !== 'Tất cả') {
     query.set('category', category);
   }
@@ -32,7 +49,7 @@ export function mapPosProductResponseToUI(dto: PosProductResponseDto): Product {
     id: dto.productId,
     name: dto.name,
     price: Number(dto.price),
-    category: dto.categoryName || 'Khac',
+    category: dto.categoryName || 'Khác',
     imageUrl: dto.imageUrl || '',
   };
 }
@@ -48,31 +65,46 @@ export function mapToppingResponseToPos(dto: ToppingResponseDto): Topping {
 }
 
 export const posService = {
-  async getProducts(params: PosProductQuery = {}): Promise<Product[]> {
-    const data = await apiFetch<PosProductResponseDto[]>(
-      `/api/products${buildProductQuery(params)}`
+  /**
+   * Gọi duy nhất 1 API GET /api/pos/menu tối ưu từ PosMenuController.
+   * Lấy trọn bộ Danh mục, Món nước và Topping (đã lọc món đang mở bán).
+   */
+  async getPosMenu(params: PosProductQuery = {}): Promise<PosMenuData> {
+    const data = await apiFetch<PosMenuResponseDto>(
+      `/api/pos/menu${buildPosMenuQuery(params)}`
     );
-    return Array.isArray(data) ? data.map(mapPosProductResponseToUI) : [];
-  },
 
-  async getCategories(): Promise<string[]> {
-    const data = await apiFetch<CategoryResponseDto[]>('/api/categories');
-    const availableNames = Array.isArray(data)
-      ? data
-          .filter((category) => category.isAvailable !== false)
-          .map((category) => category.name)
-          .filter(Boolean)
+    const categories = Array.isArray(data?.categories)
+      ? [
+          'Tất cả',
+          ...data.categories
+            .filter((category) => category.isAvailable !== false)
+            .map((category) => category.name)
+            .filter(Boolean),
+        ]
+      : ['Tất cả'];
+
+    const products = Array.isArray(data?.products)
+      ? data.products.map(mapPosProductResponseToUI)
       : [];
 
-    return ['Tất cả', ...availableNames];
-  },
-
-  async getToppings(): Promise<Topping[]> {
-    const data = await apiFetch<ToppingResponseDto[]>('/api/toppings');
-    return Array.isArray(data)
-      ? data
+    const toppings = Array.isArray(data?.toppings)
+      ? data.toppings
           .filter((topping) => topping.isAvailable !== false)
           .map(mapToppingResponseToPos)
       : [];
+
+    return { categories, products, toppings };
+  },
+
+  /**
+   * API tạo hóa đơn và thanh toán: POST /api/invoices
+   * Nhân viên tạo hóa đơn tự động trích xuất từ JWT token ở header.
+   */
+  async createInvoice(payload: CreateInvoiceRequest): Promise<InvoiceResponse> {
+    return await apiFetch<InvoiceResponse>('/api/invoices', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   },
 };
