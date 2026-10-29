@@ -46,10 +46,17 @@ export interface CategoryResponseDto {
   isAvailable?: boolean;
 }
 
-export interface CategoryRequestDto {
+export interface CreateCategoryRequestDto {
+  name: string;
+  isAvailable?: boolean;
+}
+
+export interface UpdateCategoryRequestDto {
   name?: string;
   isAvailable?: boolean;
 }
+
+export type CategoryRequestDto = CreateCategoryRequestDto;
 
 export interface CreateToppingRequestDto {
   name: string;
@@ -84,6 +91,7 @@ export interface Category {
   id: number;
   name: string;
   status: string;
+  isAvailable?: boolean;
 }
 
 /**
