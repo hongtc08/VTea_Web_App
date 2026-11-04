@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Các route chỉ dành cho ADMIN
-const ADMIN_ONLY_ROUTES = ['/accounts', '/statistics'];
+const ADMIN_ONLY_ROUTES = ['/accounts', '/statistics', '/menu'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -47,4 +47,3 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico|images).*)',
   ],
 };
-
