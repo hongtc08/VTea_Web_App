@@ -1,5 +1,6 @@
 package com.kiemchung.vtea.domain.repository;
 
+import com.kiemchung.vtea.domain.dto.response.CategoryProportionResponse;
 import com.kiemchung.vtea.domain.dto.response.TopProductResponse;
 import com.kiemchung.vtea.domain.entity.InvoiceDetail;
 import org.springframework.data.domain.Pageable;
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Giao tiếp với bảng 'order_detail' (chi tiết hóa đơn) phục vụ thống kê món bán chạy.
+ * Giao tiếp với bảng 'order_detail' (chi tiết hóa đơn) phục vụ thống kê món bán chạy và tỷ trọng danh mục.
  */
 @Repository
 public interface InvoiceDetailRepository extends JpaRepository<InvoiceDetail, Integer> {
@@ -31,4 +32,17 @@ public interface InvoiceDetailRepository extends JpaRepository<InvoiceDetail, In
     List<TopProductResponse> findTopSellingProducts(@Param("from") LocalDateTime from,
                                                     @Param("to") LocalDateTime to,
                                                     Pageable pageable);
+
+    /**
+     * Thống kê tỷ trọng bán theo từng danh mục món trong khoảng thời gian của hóa đơn.
+     * Sắp xếp: tổng số lượng bán giảm dần.
+     */
+    @Query("SELECT new com.kiemchung.vtea.domain.dto.response.CategoryProportionResponse("
+            + "c.categoryId, c.name, SUM(d.quantity), SUM(d.unitPrice * d.quantity)) "
+            + "FROM InvoiceDetail d JOIN d.product p LEFT JOIN p.category c JOIN d.invoice i "
+            + "WHERE i.createdAt BETWEEN :from AND :to "
+            + "GROUP BY c.categoryId, c.name "
+            + "ORDER BY SUM(d.quantity) DESC")
+    List<CategoryProportionResponse> findCategoryProportions(@Param("from") LocalDateTime from,
+                                                            @Param("to") LocalDateTime to);
 }

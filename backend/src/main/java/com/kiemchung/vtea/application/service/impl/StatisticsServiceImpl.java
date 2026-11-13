@@ -1,8 +1,10 @@
 package com.kiemchung.vtea.application.service.impl;
 
 import com.kiemchung.vtea.application.service.StatisticsService;
+import com.kiemchung.vtea.domain.dto.response.CategoryProportionResponse;
 import com.kiemchung.vtea.domain.dto.response.RevenueStatisticsResponse;
 import com.kiemchung.vtea.domain.dto.response.RevenueStatisticsResponse.RevenuePoint;
+import com.kiemchung.vtea.domain.dto.response.StaffPerformanceResponse;
 import com.kiemchung.vtea.domain.dto.response.TopProductResponse;
 import com.kiemchung.vtea.domain.entity.Invoice;
 import com.kiemchung.vtea.domain.repository.InvoiceDetailRepository;
@@ -24,8 +26,8 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * Thực thi nghiệp vụ thống kê doanh thu (theo ngày, tuần, tháng)
- * và tổng số lượng hóa đơn trong hệ thống.
+ * Thực thi nghiệp vụ thống kê doanh thu (theo ngày, tuần, tháng),
+ * top món bán chạy, tỷ trọng danh mục và hiệu suất nhân viên.
  */
 @Service
 public class StatisticsServiceImpl implements StatisticsService {
@@ -108,6 +110,52 @@ public class StatisticsServiceImpl implements StatisticsService {
                 resolveToDateTime(endDate),
                 PageRequest.of(0, normalizedLimit)
         );
+    }
+
+    /**
+     * Lấy tỷ trọng bán theo từng danh mục món trong khoảng thời gian.
+     * Tính toán percentage (%) tương ứng trên tổng số lượng bán của tất cả danh mục.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<CategoryProportionResponse> getCategoryProportions(LocalDate startDate, LocalDate endDate) {
+        validateDateRange(startDate, endDate);
+
+        List<CategoryProportionResponse> list = invoiceDetailRepository.findCategoryProportions(
+                resolveFromDateTime(startDate),
+                resolveToDateTime(endDate)
+        );
+
+        if (list == null || list.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        long totalAll = list.stream().mapToLong(CategoryProportionResponse::getTotalQuantity).sum();
+        if (totalAll > 0) {
+            for (CategoryProportionResponse item : list) {
+                double pct = Math.round((item.getTotalQuantity() * 100.0 / totalAll) * 10.0) / 10.0;
+                item.setPercentage(pct);
+            }
+        }
+
+        return list;
+    }
+
+    /**
+     * Thống kê hiệu suất bán hàng của từng nhân viên (số đơn đã lập và tổng doanh thu)
+     * trong khoảng thời gian chỉ định.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<StaffPerformanceResponse> getStaffPerformance(LocalDate startDate, LocalDate endDate) {
+        validateDateRange(startDate, endDate);
+
+        List<StaffPerformanceResponse> list = invoiceRepository.findStaffPerformance(
+                resolveFromDateTime(startDate),
+                resolveToDateTime(endDate)
+        );
+
+        return (list != null) ? list : new ArrayList<>();
     }
 
     /**

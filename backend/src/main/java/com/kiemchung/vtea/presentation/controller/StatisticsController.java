@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 
 /**
- * Controller tiếp nhận các API thống kê doanh thu (theo ngày, tuần, tháng)
- * và tổng số lượng hóa đơn (chỉ dành cho ADMIN).
+ * Controller tiếp nhận các API thống kê doanh thu (theo ngày, tuần, tháng),
+ * món bán chạy, tỷ trọng danh mục và hiệu suất nhân viên (chỉ dành cho ADMIN).
  */
 @RestController
 @RequestMapping("/api/statistics")
@@ -98,6 +98,44 @@ public class StatisticsController {
             @RequestParam(required = false) Integer limit) {
         try {
             return ResponseEntity.ok(statisticsService.getTopSellingProducts(startDate, endDate, limit));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * API thống kê tỷ trọng bán theo từng danh mục món (chỉ dành cho ADMIN).
+     * GET /api/statistics/category-proportion?startDate=2026-06-01&endDate=2026-06-30
+     *
+     * @param startDate Ngày bắt đầu (YYYY-MM-DD, tùy chọn)
+     * @param endDate   Ngày kết thúc (YYYY-MM-DD, tùy chọn)
+     */
+    @GetMapping("/category-proportion")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getCategoryProportions(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        try {
+            return ResponseEntity.ok(statisticsService.getCategoryProportions(startDate, endDate));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * API thống kê hiệu suất bán hàng của từng nhân viên (chỉ dành cho ADMIN).
+     * GET /api/statistics/staff-performance?startDate=2026-06-01&endDate=2026-06-30
+     *
+     * @param startDate Ngày bắt đầu (YYYY-MM-DD, tùy chọn)
+     * @param endDate   Ngày kết thúc (YYYY-MM-DD, tùy chọn)
+     */
+    @GetMapping("/staff-performance")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getStaffPerformance(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        try {
+            return ResponseEntity.ok(statisticsService.getStaffPerformance(startDate, endDate));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
