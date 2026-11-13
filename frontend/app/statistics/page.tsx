@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   TrendingUp,
   PieChart as PieChartIcon,
   Star,
   Users,
-  Calendar,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -22,40 +23,32 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
+import { statisticsService } from '@/services/statisticsService';
+import {
+  RevenueStatisticsResponseDto,
+  TopProductResponseDto,
+  CategoryProportionResponseDto,
+  StaffPerformanceResponseDto,
+} from '@/types/statistics';
+import { toast } from 'sonner';
 
-// Dữ liệu mẫu Xu hướng doanh thu (Line chart)
-const REVENUE_TREND_DATA = [
-  { date: '2026-06-02', revenue: 1380000 },
-  { date: '2026-06-03', revenue: 450000 },
-  { date: '2026-06-05', revenue: 95000 },
-  { date: '2026-06-07', revenue: 90000 },
-  { date: '2026-06-09', revenue: 75000 },
-  { date: '2026-06-10', revenue: 240000 },
-  { date: '2026-06-12', revenue: 50000 },
-  { date: '2026-06-13', revenue: 65000 },
-  { date: '2026-06-15', revenue: 50000 },
-];
+interface TooltipPayloadItem {
+  payload?: {
+    invoiceCount?: number;
+    revenue?: number;
+    quantity?: number;
+  };
+}
 
-// Dữ liệu mẫu Tỷ trọng danh mục (Pie chart)
-const CATEGORY_PROPORTION_DATA = [
-  { name: 'Cà phê', value: 72, color: '#0B3B2C' },       // Xanh trà đậm chủ đạo
-  { name: 'Trà', value: 18, color: '#9C7A3B' },          // Nâu vàng trà
-  { name: 'Nước Ép', value: 6, color: '#D8B56A' },       // Vàng champagne
-  { name: 'Sinh tố', value: 4, color: '#BDA66F' },       // Kem mật ong
-];
-
-// Dữ liệu mẫu Top món bán chạy (Horizontal Bar chart)
-const TOP_SELLING_PRODUCTS = [
-  { name: 'Cà phê Sữa đá', sales: 15 },
-  { name: 'Cà phê Đen đá', sales: 14 },
-  { name: 'Bạc xỉu', sales: 13 },
-  { name: 'Cà phê muối', sales: 6 },
-  { name: 'Trà Lài Macchiato', sales: 4 },
-];
-
-// Dữ liệu mẫu Hiệu suất nhân viên (Table)
-const STAFF_PERFORMANCE = [
-  { id: 1, name: 'Nguyễn Văn A', orders: 34, revenue: 2329250 },
+const CATEGORY_COLORS = [
+  '#0B3B2C', // primary dark green
+  '#9C7A3B', // warm gold/bronze
+  '#D8B56A', // light gold/accent
+  '#3D6B58', // medium sage green
+  '#BDA66F', // muted amber
+  '#7A9A60', // olive green
+  '#8C6239', // roasted tea brown
+  '#5A4527', // dark earth
 ];
 
 const formatCurrency = (val: number) => {
@@ -66,9 +59,127 @@ export default function StatisticsPage() {
   const [startDate, setStartDate] = useState('2026-06-01');
   const [endDate, setEndDate] = useState('2026-06-16');
 
+  // Dữ liệu thực từ API
+  const [revenueData, setRevenueData] = useState<RevenueStatisticsResponseDto | null>(null);
+  const [topProducts, setTopProducts] = useState<TopProductResponseDto[]>([]);
+  const [categoryProportions, setCategoryProportions] = useState<CategoryProportionResponseDto[]>([]);
+  const [staffPerformance, setStaffPerformance] = useState<StaffPerformanceResponseDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Tải toàn bộ dữ liệu thống kê từ Backend khi bấm Áp dụng hoặc khởi tạo
+  const fetchStatistics = useCallback(async (start?: string, end?: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [revResult, topResult, catResult, staffResult] = await Promise.all([
+        statisticsService.getRevenueStatistics({
+          startDate: start || undefined,
+          endDate: end || undefined,
+          groupBy: 'DAY',
+        }),
+        statisticsService.getTopSellingProducts({
+          startDate: start || undefined,
+          endDate: end || undefined,
+          limit: 5,
+        }),
+        statisticsService.getCategoryProportions({
+          startDate: start || undefined,
+          endDate: end || undefined,
+        }),
+        statisticsService.getStaffPerformance({
+          startDate: start || undefined,
+          endDate: end || undefined,
+        }),
+      ]);
+
+      setRevenueData(revResult);
+      setTopProducts(topResult);
+      setCategoryProportions(catResult);
+      setStaffPerformance(staffResult);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Không thể tải dữ liệu thống kê từ máy chủ.';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    Promise.all([
+      statisticsService.getRevenueStatistics({
+        startDate: '2026-06-01',
+        endDate: '2026-06-16',
+        groupBy: 'DAY',
+      }),
+      statisticsService.getTopSellingProducts({
+        startDate: '2026-06-01',
+        endDate: '2026-06-16',
+        limit: 5,
+      }),
+      statisticsService.getCategoryProportions({
+        startDate: '2026-06-01',
+        endDate: '2026-06-16',
+      }),
+      statisticsService.getStaffPerformance({
+        startDate: '2026-06-01',
+        endDate: '2026-06-16',
+      }),
+    ])
+      .then(([revResult, topResult, catResult, staffResult]) => {
+        if (!isMounted) return;
+        setRevenueData(revResult);
+        setTopProducts(topResult);
+        setCategoryProportions(catResult);
+        setStaffPerformance(staffResult);
+        setIsLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (!isMounted) return;
+        const msg = err instanceof Error ? err.message : 'Không thể tải dữ liệu thống kê.';
+        setError(msg);
+        toast.error(msg);
+        setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleApplyFilter = () => {
-    // Logic khi nhấn Áp dụng bộ lọc thời gian
+    if (startDate && endDate && startDate > endDate) {
+      toast.error('Ngày bắt đầu không được lớn hơn ngày kết thúc!');
+      return;
+    }
+    fetchStatistics(startDate, endDate);
   };
+
+  // Chuẩn hóa dữ liệu cho biểu đồ đường (Line chart)
+  const lineChartData = revenueData?.timeline?.map((item) => ({
+    date: item.date,
+    revenue: Number(item.revenue),
+    invoiceCount: Number(item.invoiceCount),
+  })) || [];
+
+  // Chuẩn hóa dữ liệu cho biểu đồ tròn (Pie chart)
+  const categoryChartData = categoryProportions.map((cat, idx) => ({
+    name: cat.categoryName,
+    value: Number(cat.percentage),
+    quantity: Number(cat.totalQuantity),
+    revenue: Number(cat.totalRevenue),
+    color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+  }));
+
+  // Chuẩn hóa dữ liệu cho biểu đồ cột ngang (Bar chart)
+  const barChartData = topProducts.map((item) => ({
+    name: item.productName,
+    sales: Number(item.totalQuantity),
+    revenue: Number(item.totalRevenue),
+  }));
 
   return (
     <div className="flex flex-col h-full w-full pb-8">
@@ -108,213 +219,322 @@ export default function StatisticsPage() {
           <button
             type="button"
             onClick={handleApplyFilter}
-            className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-accent shadow-xs hover:bg-primary-hover transition-colors cursor-pointer"
+            disabled={isLoading}
+            className="flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2 text-xs font-bold text-accent shadow-xs hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
+            {isLoading && <Loader2 size={13} className="animate-spin" />}
             Áp dụng
           </button>
         </div>
       </div>
 
+      {/* Thông báo lỗi khi gọi API thất bại */}
+      {error && !isLoading && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-danger rounded-[var(--radius-card)] p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={20} className="shrink-0" />
+            <span className="text-sm font-medium">{error}</span>
+          </div>
+          <button
+            onClick={() => fetchStatistics(startDate, endDate)}
+            className="px-3 py-1.5 text-xs font-bold bg-danger text-white rounded-[var(--radius-control)] hover:opacity-90 transition-opacity shrink-0 cursor-pointer"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+
       {/* Grid 4 Khối biểu đồ & Thống kê */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* 1. Biểu đồ Xu hướng doanh thu (Line Chart) - Chiếm 7 cột */}
+        {/* 1. Biểu đồ Xu hướng doanh thu (Line Chart) */}
         <div className="lg:col-span-7 flex flex-col rounded-2xl border border-border bg-surface p-5 shadow-2xs">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={18} className="text-foreground" />
-            <h2 className="text-sm font-bold text-foreground">Xu hướng doanh thu</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={18} className="text-foreground" />
+              <h2 className="text-sm font-bold text-foreground">Xu hướng doanh thu</h2>
+            </div>
+            {revenueData && !isLoading && (
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-muted">
+                  Tổng: <strong className="text-primary font-bold">{formatCurrency(Number(revenueData.totalRevenue || 0))} đ</strong>
+                </span>
+                <span className="text-muted">
+                  Hóa đơn: <strong className="text-foreground font-bold">{revenueData.totalInvoices || 0}</strong>
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="h-64 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={REVENUE_TREND_DATA}
-                margin={{ top: 10, right: 20, left: 15, bottom: 25 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2D2AA" opacity={0.6} />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 10, fill: '#5A4527' }}
-                  angle={90}
-                  textAnchor="start"
-                  dy={10}
-                  tickLine={false}
-                  label={{ value: 'Thời gian', position: 'insideBottom', dy: 25, fontSize: 11, fill: '#3A3323', fontWeight: 600 }}
-                />
-                <YAxis
-                  tick={{ fontSize: 10, fill: '#5A4527' }}
-                  tickFormatter={(val) => (val === 0 ? '0' : formatCurrency(val))}
-                  tickLine={false}
-                  axisLine={false}
-                  label={{
-                    value: 'Doanh thu (VNĐ)',
-                    angle: -90,
-                    position: 'insideLeft',
-                    fontSize: 11,
-                    fill: '#3A3323',
-                    fontWeight: 600,
-                    dy: 40,
-                    dx: -10,
-                  }}
-                />
-                <RechartsTooltip
-                  formatter={(value: any) => [`${formatCurrency(Number(value))} đ`, 'Doanh thu']}
-                  labelFormatter={(label) => `Ngày: ${label}`}
-                  contentStyle={{
-                    backgroundColor: '#FCF9F2',
-                    borderColor: '#E2D2AA',
-                    borderRadius: '0.75rem',
-                    fontSize: '11px',
-                    color: '#0B3B2C',
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#0B3B2C"
-                  strokeWidth={2.5}
-                  dot={{ r: 4, stroke: '#0B3B2C', strokeWidth: 2, fill: '#FFF' }}
-                  activeDot={{ r: 6, fill: '#D8B56A', stroke: '#0B3B2C', strokeWidth: 2 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {isLoading ? (
+              <div className="h-full flex items-center justify-center">
+                <Loader2 size={24} className="animate-spin text-muted" />
+              </div>
+            ) : lineChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={lineChartData}
+                  margin={{ top: 10, right: 20, left: 15, bottom: 25 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2D2AA" opacity={0.6} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: '#5A4527' }}
+                    angle={90}
+                    textAnchor="start"
+                    dy={10}
+                    tickLine={false}
+                    label={{ value: 'Thời gian', position: 'insideBottom', dy: 25, fontSize: 11, fill: '#3A3323', fontWeight: 600 }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: '#5A4527' }}
+                    tickFormatter={(val) => (val === 0 ? '0' : formatCurrency(val))}
+                    tickLine={false}
+                    axisLine={false}
+                    label={{
+                      value: 'Doanh thu (VNĐ)',
+                      angle: -90,
+                      position: 'insideLeft',
+                      fontSize: 11,
+                      fill: '#3A3323',
+                      fontWeight: 600,
+                      dy: 40,
+                      dx: -10,
+                    }}
+                  />
+                  <RechartsTooltip
+                    formatter={(value: unknown, _name: unknown, item: unknown) => {
+                      const payload = (item as TooltipPayloadItem)?.payload;
+                      return [
+                        `${formatCurrency(Number(value || 0))} đ (${payload?.invoiceCount || 0} đơn)`,
+                        'Doanh thu',
+                      ];
+                    }}
+                    labelFormatter={(label) => `Ngày: ${label}`}
+                    contentStyle={{
+                      backgroundColor: '#FCF9F2',
+                      borderColor: '#E2D2AA',
+                      borderRadius: '0.75rem',
+                      fontSize: '11px',
+                      color: '#0B3B2C',
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#0B3B2C"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, stroke: '#0B3B2C', strokeWidth: 2, fill: '#FFF' }}
+                    activeDot={{ r: 6, fill: '#D8B56A', stroke: '#0B3B2C', strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-muted text-xs">
+                <span>Chưa có phát sinh doanh thu trong khoảng thời gian này.</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* 2. Biểu đồ Tỷ trọng danh mục (Pie Chart) - Chiếm 5 cột */}
+        {/* 2. Biểu đồ Tỷ trọng danh mục (Pie Chart) */}
         <div className="lg:col-span-5 flex flex-col rounded-2xl border border-border bg-surface p-5 shadow-2xs">
-          <div className="flex items-center gap-2 mb-2">
-            <PieChartIcon size={18} className="text-foreground" />
-            <h2 className="text-sm font-bold text-foreground">Tỷ trọng danh mục</h2>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <PieChartIcon size={18} className="text-foreground" />
+              <h2 className="text-sm font-bold text-foreground">Tỷ trọng danh mục</h2>
+            </div>
+            {categoryProportions.length > 0 && !isLoading && (
+              <span className="text-xs text-muted">{categoryProportions.length} danh mục</span>
+            )}
           </div>
 
           <div className="h-56 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={CATEGORY_PROPORTION_DATA}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={75}
-                  dataKey="value"
-                  label={({ name }) => name}
-                  labelLine={{ stroke: '#9C7A3B', strokeWidth: 1 }}
-                >
-                  {CATEGORY_PROPORTION_DATA.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} stroke="#FCF9F2" strokeWidth={2} />
-                  ))}
-                </Pie>
-                <RechartsTooltip
-                  formatter={(val: any) => [`${val}%`, 'Tỷ trọng']}
-                  contentStyle={{
-                    backgroundColor: '#FCF9F2',
-                    borderColor: '#E2D2AA',
-                    borderRadius: '0.75rem',
-                    fontSize: '11px',
-                    color: '#0B3B2C',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {isLoading ? (
+              <div className="h-full flex items-center justify-center">
+                <Loader2 size={24} className="animate-spin text-muted" />
+              </div>
+            ) : categoryChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryChartData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={75}
+                    dataKey="value"
+                    label={({ name }) => name}
+                    labelLine={{ stroke: '#9C7A3B', strokeWidth: 1 }}
+                  >
+                    {categoryChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} stroke="#FCF9F2" strokeWidth={2} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip
+                    formatter={(val: unknown, _name: unknown, item: unknown) => {
+                      const payload = (item as TooltipPayloadItem)?.payload;
+                      return [
+                        `${val}% (${payload?.quantity || 0} ly - ${formatCurrency(Number(payload?.revenue || 0))} đ)`,
+                        'Tỷ trọng',
+                      ];
+                    }}
+                    contentStyle={{
+                      backgroundColor: '#FCF9F2',
+                      borderColor: '#E2D2AA',
+                      borderRadius: '0.75rem',
+                      fontSize: '11px',
+                      color: '#0B3B2C',
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-muted text-xs">
+                <span>Chưa có phát sinh đơn hàng nào theo danh mục.</span>
+              </div>
+            )}
           </div>
 
           {/* Chú thích Legend bên dưới */}
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-1 text-xs text-foreground">
-            {CATEGORY_PROPORTION_DATA.map((item) => (
-              <div key={item.name} className="flex items-center gap-1.5">
-                <span
-                  className="h-2.5 w-2.5 rounded-full inline-block"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="font-medium text-[11px]">{item.name}</span>
-              </div>
-            ))}
-          </div>
+          {categoryChartData.length > 0 && (
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-1 text-xs text-foreground">
+              {categoryChartData.map((item) => (
+                <div key={item.name} className="flex items-center gap-1.5">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full inline-block shrink-0"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="font-medium text-[11px]">
+                    {item.name} ({item.value}%)
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* 3. Top món bán chạy (Horizontal Bar Chart) - Chiếm 7 cột */}
+        {/* 3. Top món bán chạy (Horizontal Bar Chart) */}
         <div className="lg:col-span-7 flex flex-col rounded-2xl border border-border bg-surface p-5 shadow-2xs">
-          <div className="flex items-center gap-2 mb-4">
-            <Star size={18} className="text-foreground" />
-            <h2 className="text-sm font-bold text-foreground">Top món bán chạy</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Star size={18} className="text-foreground" />
+              <h2 className="text-sm font-bold text-foreground">Top món bán chạy</h2>
+            </div>
+            {topProducts.length > 0 && !isLoading && (
+              <span className="text-xs text-muted">Top {topProducts.length} món</span>
+            )}
           </div>
 
           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                layout="vertical"
-                data={TOP_SELLING_PRODUCTS}
-                margin={{ top: 10, right: 25, left: 45, bottom: 20 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2D2AA" opacity={0.6} />
-                <XAxis
-                  type="number"
-                  domain={[0, 16]}
-                  ticks={[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-                  tick={{ fontSize: 10, fill: '#5A4527' }}
-                  tickLine={false}
-                  label={{ value: 'Số lượng bán', position: 'insideBottom', dy: 15, fontSize: 11, fill: '#3A3323', fontWeight: 600 }}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  tick={{ fontSize: 10.5, fill: '#0B3B2C', fontWeight: 600 }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={110}
-                />
-                <RechartsTooltip
-                  formatter={(val: any) => [`${val} ly`, 'Đã bán']}
-                  contentStyle={{
-                    backgroundColor: '#FCF9F2',
-                    borderColor: '#E2D2AA',
-                    borderRadius: '0.75rem',
-                    fontSize: '11px',
-                    color: '#0B3B2C',
-                  }}
-                />
-                <Bar
-                  dataKey="sales"
-                  fill="#D8B56A"
-                  radius={[0, 4, 4, 0]}
-                  barSize={12}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            {isLoading ? (
+              <div className="h-full flex items-center justify-center">
+                <Loader2 size={24} className="animate-spin text-muted" />
+              </div>
+            ) : barChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  layout="vertical"
+                  data={barChartData}
+                  margin={{ top: 10, right: 25, left: 45, bottom: 20 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2D2AA" opacity={0.6} />
+                  <XAxis
+                    type="number"
+                    allowDecimals={false}
+                    tick={{ fontSize: 10, fill: '#5A4527' }}
+                    tickLine={false}
+                    label={{ value: 'Số lượng bán (ly)', position: 'insideBottom', dy: 15, fontSize: 11, fill: '#3A3323', fontWeight: 600 }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    tick={{ fontSize: 10.5, fill: '#0B3B2C', fontWeight: 600 }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={110}
+                  />
+                  <RechartsTooltip
+                    formatter={(val: unknown, _name: unknown, item: unknown) => {
+                      const payload = (item as TooltipPayloadItem)?.payload;
+                      return [
+                        `${val} ly (${formatCurrency(Number(payload?.revenue || 0))} đ)`,
+                        'Đã bán',
+                      ];
+                    }}
+                    contentStyle={{
+                      backgroundColor: '#FCF9F2',
+                      borderColor: '#E2D2AA',
+                      borderRadius: '0.75rem',
+                      fontSize: '11px',
+                      color: '#0B3B2C',
+                    }}
+                  />
+                  <Bar
+                    dataKey="sales"
+                    fill="#D8B56A"
+                    radius={[0, 4, 4, 0]}
+                    barSize={12}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-muted text-xs">
+                <span>Chưa có dữ liệu món bán chạy trong khoảng thời gian này.</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* 4. Hiệu suất nhân viên (Table) - Chiếm 5 cột */}
+        {/* 4. Hiệu suất nhân viên (Table) */}
         <div className="lg:col-span-5 flex flex-col rounded-2xl border border-border bg-surface p-5 shadow-2xs">
-          <div className="flex items-center gap-2 mb-4">
-            <Users size={18} className="text-foreground" />
-            <h2 className="text-sm font-bold text-foreground">Hiệu suất nhân viên</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Users size={18} className="text-foreground" />
+              <h2 className="text-sm font-bold text-foreground">Hiệu suất nhân viên</h2>
+            </div>
+            {staffPerformance.length > 0 && !isLoading && (
+              <span className="text-xs text-muted">{staffPerformance.length} nhân viên</span>
+            )}
           </div>
 
           <div className="overflow-hidden rounded-xl border border-border/80">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-cream-100/90 text-foreground font-semibold border-b border-border">
-                  <th className="py-3 px-4">Nhân viên</th>
-                  <th className="py-3 px-4 text-center">Số đơn</th>
-                  <th className="py-3 px-4 text-right">Doanh thu</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50 text-foreground">
-                {STAFF_PERFORMANCE.map((staff) => (
-                  <tr key={staff.id} className="hover:bg-cream-50/50 transition-colors">
-                    <td className="py-3.5 px-4 font-semibold text-foreground">
-                      {staff.name}
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-medium text-foreground/80">
-                      {staff.orders}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-bold text-foreground">
-                      {formatCurrency(staff.revenue)} đ
-                    </td>
+            {isLoading ? (
+              <div className="p-8 flex items-center justify-center">
+                <Loader2 size={24} className="animate-spin text-muted" />
+              </div>
+            ) : staffPerformance.length > 0 ? (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-cream-100/90 text-foreground font-semibold border-b border-border">
+                    <th className="py-3 px-4">Nhân viên</th>
+                    <th className="py-3 px-4 text-center">Số đơn</th>
+                    <th className="py-3 px-4 text-right">Doanh thu</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border/50 text-foreground">
+                  {staffPerformance.map((staff) => (
+                    <tr key={staff.userId} className="hover:bg-cream-50/50 transition-colors">
+                      <td className="py-3.5 px-4 font-semibold text-foreground">
+                        <div>{staff.staffName}</div>
+                        {staff.fullName && staff.username !== staff.fullName && (
+                          <div className="text-[10px] text-muted font-normal">@{staff.username}</div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-medium text-foreground/80">
+                        {staff.orderCount}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-foreground">
+                        {formatCurrency(Number(staff.totalRevenue))} đ
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="p-8 text-center text-muted text-xs">
+                Chưa có dữ liệu hiệu suất nhân viên trong khoảng thời gian này.
+              </div>
+            )}
           </div>
         </div>
       </div>
