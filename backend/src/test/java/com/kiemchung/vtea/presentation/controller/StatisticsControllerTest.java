@@ -1,7 +1,9 @@
 package com.kiemchung.vtea.presentation.controller;
 
 import com.kiemchung.vtea.application.service.StatisticsService;
+import com.kiemchung.vtea.domain.dto.response.CategoryProportionResponse;
 import com.kiemchung.vtea.domain.dto.response.RevenueStatisticsResponse;
+import com.kiemchung.vtea.domain.dto.response.StaffPerformanceResponse;
 import com.kiemchung.vtea.domain.dto.response.TopProductResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -132,5 +134,51 @@ class StatisticsControllerTest {
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals(sampleResponse, response.getBody());
+    }
+
+    @Test
+    void getCategoryProportions_Success_Returns200() {
+        List<CategoryProportionResponse> categories = List.of(
+                new CategoryProportionResponse(1, "Cà phê", 10L, new BigDecimal("300000")));
+        when(statisticsService.getCategoryProportions(startDate, endDate)).thenReturn(categories);
+
+        ResponseEntity<?> response = statisticsController.getCategoryProportions(startDate, endDate);
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(categories, response.getBody());
+    }
+
+    @Test
+    void getCategoryProportions_InvalidInput_Returns400() {
+        when(statisticsService.getCategoryProportions(startDate, endDate))
+                .thenThrow(new IllegalArgumentException("Ngày bắt đầu không được lớn hơn ngày kết thúc!"));
+
+        ResponseEntity<?> response = statisticsController.getCategoryProportions(startDate, endDate);
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals("Ngày bắt đầu không được lớn hơn ngày kết thúc!", response.getBody());
+    }
+
+    @Test
+    void getStaffPerformance_Success_Returns200() {
+        List<StaffPerformanceResponse> staff = List.of(
+                new StaffPerformanceResponse(1, "admin", "Nguyễn Văn A", 10L, new BigDecimal("800000")));
+        when(statisticsService.getStaffPerformance(startDate, endDate)).thenReturn(staff);
+
+        ResponseEntity<?> response = statisticsController.getStaffPerformance(startDate, endDate);
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(staff, response.getBody());
+    }
+
+    @Test
+    void getStaffPerformance_InvalidInput_Returns400() {
+        when(statisticsService.getStaffPerformance(startDate, endDate))
+                .thenThrow(new IllegalArgumentException("Ngày bắt đầu không được lớn hơn ngày kết thúc!"));
+
+        ResponseEntity<?> response = statisticsController.getStaffPerformance(startDate, endDate);
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals("Ngày bắt đầu không được lớn hơn ngày kết thúc!", response.getBody());
     }
 }

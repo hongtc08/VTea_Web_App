@@ -1,7 +1,9 @@
 package com.kiemchung.vtea.application.service.impl;
 
+import com.kiemchung.vtea.domain.dto.response.CategoryProportionResponse;
 import com.kiemchung.vtea.domain.dto.response.RevenueStatisticsResponse;
 import com.kiemchung.vtea.domain.dto.response.RevenueStatisticsResponse.RevenuePoint;
+import com.kiemchung.vtea.domain.dto.response.StaffPerformanceResponse;
 import com.kiemchung.vtea.domain.dto.response.TopProductResponse;
 import com.kiemchung.vtea.domain.entity.Invoice;
 import com.kiemchung.vtea.domain.entity.PaymentMethod;
@@ -345,5 +347,88 @@ class StatisticsServiceImplTest {
 
         assertNotNull(result);
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getCategoryProportions_Success_CalculatesPercentages() {
+        LocalDate start = LocalDate.of(2026, 6, 1);
+        LocalDate end = LocalDate.of(2026, 6, 16);
+
+        List<CategoryProportionResponse> mockData = List.of(
+                new CategoryProportionResponse(1, "Cà phê", 75L, new BigDecimal("2250000")),
+                new CategoryProportionResponse(2, "Trà", 25L, new BigDecimal("750000"))
+        );
+
+        when(invoiceDetailRepository.findCategoryProportions(
+                eq(start.atStartOfDay()),
+                eq(end.atTime(LocalTime.MAX))))
+                .thenReturn(mockData);
+
+        List<CategoryProportionResponse> result = statisticsService.getCategoryProportions(start, end);
+
+        assertEquals(2, result.size());
+        assertEquals("Cà phê", result.get(0).getCategoryName());
+        assertEquals(75.0, result.get(0).getPercentage());
+        assertEquals("Trà", result.get(1).getCategoryName());
+        assertEquals(25.0, result.get(1).getPercentage());
+    }
+
+    @Test
+    void getCategoryProportions_Empty_ReturnsEmptyList() {
+        when(invoiceDetailRepository.findCategoryProportions(any(), any())).thenReturn(List.of());
+
+        List<CategoryProportionResponse> result = statisticsService.getCategoryProportions(null, null);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getCategoryProportions_StartAfterEnd_Throws() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> statisticsService.getCategoryProportions(LocalDate.of(2026, 6, 30), LocalDate.of(2026, 6, 1)));
+        assertTrue(ex.getMessage().contains("Ngày bắt đầu không được lớn hơn ngày kết thúc"));
+        verifyNoInteractions(invoiceDetailRepository);
+    }
+
+    @Test
+    void getStaffPerformance_Success_ReturnsList() {
+        LocalDate start = LocalDate.of(2026, 6, 1);
+        LocalDate end = LocalDate.of(2026, 6, 16);
+
+        List<StaffPerformanceResponse> mockData = List.of(
+                new StaffPerformanceResponse(1, "admin", "Nguyễn Văn A", 34L, new BigDecimal("2329250")),
+                new StaffPerformanceResponse(2, "staff1", "Trần Thị B", 20L, new BigDecimal("1150000"))
+        );
+
+        when(invoiceRepository.findStaffPerformance(
+                eq(start.atStartOfDay()),
+                eq(end.atTime(LocalTime.MAX))))
+                .thenReturn(mockData);
+
+        List<StaffPerformanceResponse> result = statisticsService.getStaffPerformance(start, end);
+
+        assertEquals(2, result.size());
+        assertEquals("Nguyễn Văn A", result.get(0).getStaffName());
+        assertEquals(34L, result.get(0).getOrderCount());
+        assertEquals(new BigDecimal("2329250"), result.get(0).getTotalRevenue());
+    }
+
+    @Test
+    void getStaffPerformance_Empty_ReturnsEmptyList() {
+        when(invoiceRepository.findStaffPerformance(any(), any())).thenReturn(List.of());
+
+        List<StaffPerformanceResponse> result = statisticsService.getStaffPerformance(null, null);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getStaffPerformance_StartAfterEnd_Throws() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> statisticsService.getStaffPerformance(LocalDate.of(2026, 6, 30), LocalDate.of(2026, 6, 1)));
+        assertTrue(ex.getMessage().contains("Ngày bắt đầu không được lớn hơn ngày kết thúc"));
+        verifyNoInteractions(invoiceRepository);
     }
 }

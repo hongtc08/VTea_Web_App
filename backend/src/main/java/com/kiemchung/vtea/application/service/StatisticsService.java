@@ -1,14 +1,16 @@
 package com.kiemchung.vtea.application.service;
 
+import com.kiemchung.vtea.domain.dto.response.CategoryProportionResponse;
 import com.kiemchung.vtea.domain.dto.response.RevenueStatisticsResponse;
+import com.kiemchung.vtea.domain.dto.response.StaffPerformanceResponse;
 import com.kiemchung.vtea.domain.dto.response.TopProductResponse;
 
 import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Định nghĩa interface nghiệp vụ thống kê doanh thu (theo ngày, tuần, tháng)
- * và tổng số lượng hóa đơn.
+ * Định nghĩa interface nghiệp vụ thống kê doanh thu (theo ngày, tuần, tháng),
+ * món bán chạy, tỷ trọng danh mục và hiệu suất nhân viên.
  */
 public interface StatisticsService {
 
@@ -31,4 +33,22 @@ public interface StatisticsService {
      * @return Danh sách món xếp hạng giảm dần theo số lượng bán (rỗng nếu chưa có giao dịch)
      */
     List<TopProductResponse> getTopSellingProducts(LocalDate startDate, LocalDate endDate, Integer limit);
+
+    /**
+     * Lấy tỷ trọng bán theo từng danh mục món trong khoảng thời gian.
+     *
+     * @param startDate Ngày bắt đầu lọc (có thể null để lấy từ đầu)
+     * @param endDate   Ngày kết thúc lọc (có thể null để lấy đến hiện tại)
+     * @return Danh sách tỷ trọng danh mục kèm tỷ lệ phần trăm (%)
+     */
+    List<CategoryProportionResponse> getCategoryProportions(LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Thống kê hiệu suất bán hàng của từng nhân viên trong khoảng thời gian.
+     *
+     * @param startDate Ngày bắt đầu lọc (có thể null để lấy từ đầu)
+     * @param endDate   Ngày kết thúc lọc (có thể null để lấy đến hiện tại)
+     * @return Danh sách hiệu suất nhân viên xếp hạng theo doanh thu
+     */
+    List<StaffPerformanceResponse> getStaffPerformance(LocalDate startDate, LocalDate endDate);
 }
