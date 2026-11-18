@@ -32,9 +32,9 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category c " +
            "WHERE p.isAvailable = true " +
            "AND (c IS NULL OR c.isAvailable = true) " +
-           "AND (:categoryId IS NULL OR c.categoryId = :categoryId) " +
-           "AND (:categoryName IS NULL OR LOWER(c.name) = LOWER(:categoryName)) " +
-           "AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+           "AND (CAST(:categoryId AS Integer) IS NULL OR c.categoryId = :categoryId) " +
+           "AND (CAST(:categoryName AS String) IS NULL OR LOWER(c.name) = LOWER(CAST(:categoryName AS String))) " +
+           "AND (CAST(:keyword AS String) IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS String), '%')))")
     List<Product> searchAvailableProductsForPos(
             @Param("keyword") String keyword,
             @Param("categoryId") Integer categoryId,

@@ -5,10 +5,10 @@ spring:
     name: vtea
   datasource:
     # Kết nối tới DB thông qua biến môi trường từ file .env
-    url: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslMode=REQUIRED
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require
     username: ${DB_USER}
     password: ${DB_PASS}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       # none: không để Hibernate tự động sửa schema DB
